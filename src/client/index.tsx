@@ -1,34 +1,49 @@
-import { createElement, useEffect, useState } from 'react'
+import { Component, createElement, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import { Workbench } from './Workbench.tsx'
 import { mountWritingRemote } from './remote.ts'
 import { STYLES } from './styles.ts'
 
 const RAIL_ATTR = 'data-ow-rail'
+const SETTINGS_MARK = 'data-ow-settings'
 
 function buttonLabel(el: Element): string {
   const button = el as HTMLElement
   return `${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`
 }
 
-function findLabeledButton(pattern: RegExp): HTMLElement | null {
+function findSettingsButton(): HTMLButtonElement | null {
+  const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[]
   return (
-    Array.from(document.querySelectorAll('button')).find((button) => pattern.test(buttonLabel(button))) ?? null
+    buttons.find(
+      (button) => button.getAttribute('aria-haspopup') === 'dialog' && /设置|Settings/.test(buttonLabel(button)),
+    ) || null
   )
 }
 
-function PenIcon({ size = 16 }: { size?: number }) {
-  return createElement(
-    'svg',
-    { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true },
-    createElement('path', {
-      d: 'M4 2.5h5.2L13 6.3V13a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13V4A1.5 1.5 0 0 1 4.5 2.5H4z',
-      stroke: 'currentColor',
-      strokeWidth: '1.25',
-    }),
-    createElement('path', { d: 'M9 2.6V6h3.3', stroke: 'currentColor', strokeWidth: '1.25' }),
-    createElement('path', { d: 'M6.2 11.6 10.4 7.4l1.2 1.2-4.2 4.2H6.2v-1.2z', fill: 'currentColor' }),
-  )
+function iconSvg(size: number): string {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 2.5h5.2L13 6.3V13a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13V4A1.5 1.5 0 0 1 4.5 2.5H4z" stroke="currentColor" stroke-width="1.25"/><path d="M9 2.6V6h3.3" stroke="currentColor" stroke-width="1.25"/><path d="M6.2 11.6 10.4 7.4l1.2 1.2-4.2 4.2H6.2v-1.2z" fill="currentColor"/></svg>`
+}
+
+class OverlayGuard extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null as string | null }
+  static getDerivedStateFromError(error: Error) {
+    return { error: error.message || String(error) }
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[dsh-official-writing]', error, info.componentStack)
+  }
+  render() {
+    if (this.state.error) {
+      return createElement(
+        'div',
+        { className: 'ow-crash', role: 'alert' },
+        createElement('strong', null, '公文写作助手未能打开'),
+        createElement('p', null, this.state.error),
+      )
+    }
+    return this.props.children
+  }
 }
 
 export const inject = ['slots']
@@ -51,8 +66,10 @@ export function apply(ctx: Context) {
     listeners.add(listener)
     return () => listeners.delete(listener)
   }
+  const EVENT = 'ow-official-writing'
   const toggle = () => {
     open = !open
+    window.dispatchEvent(new CustomEvent(EVENT, { detail: open }))
     notify()
   }
 
@@ -87,39 +104,31 @@ export function apply(ctx: Context) {
 
   function Overlay() {
     const [opened, setOpened] = useState(open)
-    useEffect(() => subscribe(() => setOpened(open)), [])
+    useEffect(() => {
+      const onEvent = (event: Event) => setOpened(Boolean((event as CustomEvent).detail))
+      window.addEventListener(EVENT, onEvent)
+      const unsub = subscribe(() => setOpened(open))
+      setOpened(open)
+      return () => {
+        window.removeEventListener(EVENT, onEvent)
+        unsub()
+      }
+    }, [])
     if (!opened) return null
     return createElement(
       'div',
-      { style: { pointerEvents: 'auto' } },
-      createElement(Workbench, {
-        ctx,
-        onClose: () => {
-          open = false
-          notify()
-        },
-      }),
-    )
-  }
-
-  function FooterEntry({ wide }: { wide?: boolean }) {
-    const [pressed, setPressed] = useState(open)
-    useEffect(() => subscribe(() => setPressed(open)), [])
-    return createElement(
-      'button',
-      {
-        type: 'button',
-        className: `ow-footer-entry${pressed ? ' on' : ''}`,
-        title: '公文写作助手',
-        'aria-label': '公文写作助手',
-        'aria-pressed': pressed,
-        onClick: (event: { stopPropagation: () => void }) => {
-          event.stopPropagation()
-          toggle()
-        },
-      },
-      createElement(PenIcon, { size: wide ? 16 : 18 }),
-      wide ? createElement('span', null, '公文写作助手') : null,
+      { className: 'ow-overlay-host', style: { pointerEvents: 'auto' } },
+      createElement(
+        OverlayGuard,
+        null,
+        createElement(Workbench, {
+          ctx,
+          onClose: () => {
+            open = false
+            notify()
+          },
+        }),
+      ),
     )
   }
 
@@ -130,107 +139,81 @@ export function apply(ctx: Context) {
     ),
   )
 
-  slots.inject('sidebar.footer.action', () =>
-    slots.register(
-      {
-        name: 'sidebar.footer.action',
-        id: 'official-writing-entry',
-        order: 40,
-        label: '公文写作助手',
-      },
-      FooterEntry,
-    ),
-  )
-
   ctx.effect(() => {
     const host = document.createElement('div')
     host.setAttribute(RAIL_ATTR, '1')
     host.className = 'ow-rail-host'
     document.body.appendChild(host)
 
-    const paint = () => {
+    const ensureButton = (settings: HTMLButtonElement, wide: boolean) => {
+      const existing = host.querySelector('button')
+      const pressed = String(open)
+      if (existing && host.getAttribute('data-wide') === String(wide) && existing.getAttribute('aria-pressed') === pressed) {
+        return
+      }
       host.replaceChildren()
       const button = document.createElement('button')
       button.type = 'button'
-      button.className = 'ow-rail-btn'
+      button.className = settings.className
       button.title = '公文写作助手'
       button.setAttribute('aria-label', '公文写作助手')
-      button.setAttribute('aria-pressed', String(open))
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-      svg.setAttribute('width', '16')
-      svg.setAttribute('height', '16')
-      svg.setAttribute('viewBox', '0 0 16 16')
-      svg.setAttribute('fill', 'none')
-      svg.setAttribute('aria-hidden', 'true')
-      const paths: Array<[string, Record<string, string>]> = [
-        [
-          'path',
-          {
-            d: 'M4 2.5h5.2L13 6.3V13a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13V4A1.5 1.5 0 0 1 4.5 2.5H4z',
-            stroke: 'currentColor',
-            'stroke-width': '1.25',
-          },
-        ],
-        ['path', { d: 'M9 2.6V6h3.3', stroke: 'currentColor', 'stroke-width': '1.25' }],
-        ['path', { d: 'M6.2 11.6 10.4 7.4l1.2 1.2-4.2 4.2H6.2v-1.2z', fill: 'currentColor' }],
-      ]
-      for (const [tag, attrs] of paths) {
-        const node = document.createElementNS('http://www.w3.org/2000/svg', tag)
-        for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value)
-        svg.appendChild(node)
-      }
-      button.appendChild(svg)
+      button.setAttribute('aria-pressed', pressed)
+      button.innerHTML = `${iconSvg(wide ? 16 : 18)}${wide ? '<span>公文写作助手</span>' : ''}`
       button.addEventListener('click', (event) => {
+        event.preventDefault()
         event.stopPropagation()
         toggle()
       })
       host.appendChild(button)
+      host.setAttribute('data-wide', String(wide))
     }
 
     const place = () => {
-      const add = findLabeledButton(/添加工作区|Add workspace/)
-      const view = findLabeledButton(/视图选项|View options/)
-      const anchor = add || view
-      if (!anchor) {
+      const settings = findSettingsButton()
+      if (!settings) {
         host.style.display = 'none'
         return
       }
-      const rect = anchor.getBoundingClientRect()
-      if (rect.width < 8 || rect.height < 8 || rect.bottom < 0 || rect.top > window.innerHeight) {
+      const parent = settings.parentElement
+      const rail = settings.offsetWidth <= 48 || /\brail\b/i.test(settings.className)
+      if (parent) parent.setAttribute(SETTINGS_MARK, rail ? 'rail' : 'wide')
+      const rect = settings.getBoundingClientRect()
+      if (rect.width < 8 || rect.height < 8) {
         host.style.display = 'none'
         return
       }
+      ensureButton(settings, !rail)
       host.style.display = 'block'
-      const stacked = view && Math.abs(view.getBoundingClientRect().top - rect.top) > 12
-      if (stacked) {
+      if (rail) {
         host.style.left = `${Math.round(rect.left)}px`
-        host.style.top = `${Math.round(rect.bottom + 4)}px`
-      } else {
-        host.style.left = `${Math.round(rect.right + 4)}px`
-        host.style.top = `${Math.round(rect.top)}px`
+        host.style.top = `${Math.round(rect.top - rect.height - 8)}px`
+        host.style.width = `${Math.round(rect.width)}px`
+        host.style.height = `${Math.round(rect.height)}px`
+        return
       }
+      host.style.left = `${Math.round(rect.right + 6)}px`
+      host.style.top = `${Math.round(rect.top)}px`
       host.style.width = `${Math.round(rect.width)}px`
       host.style.height = `${Math.round(rect.height)}px`
     }
 
-    paint()
     place()
-    const unsub = subscribe(() => {
-      paint()
+    const unsub = subscribe(() => place())
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    const mo = new MutationObserver((records) => {
+      if (records.every((record) => host.contains(record.target) || record.target === host)) return
       place()
     })
-    const onScroll = () => place()
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', onScroll, true)
-    const mo = new MutationObserver(place)
-    mo.observe(document.body, { childList: true, subtree: true, attributes: true })
+    mo.observe(document.body, { childList: true, subtree: true })
     const timer = window.setInterval(place, 500)
     return () => {
       unsub()
       window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('scroll', place, true)
       mo.disconnect()
       window.clearInterval(timer)
+      document.querySelectorAll(`[${SETTINGS_MARK}]`).forEach((node) => node.removeAttribute(SETTINGS_MARK))
       host.remove()
     }
   })

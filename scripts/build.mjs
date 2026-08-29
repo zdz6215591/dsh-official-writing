@@ -66,7 +66,17 @@ const wrapped = `window.__ModuleLoader__.load({
         };
       }
       if (name === "react-dom") {
-        try { return require(name); } catch (_) { return require("react"); }
+        try { return require(name); } catch (_) {
+          var React = require("react");
+          var flushSync = function (fn) { return typeof fn === "function" ? fn() : fn; };
+          return {
+            __esModule: true,
+            default: { flushSync: flushSync, createPortal: function (child) { return child; }, findDOMNode: function () { return null; } },
+            flushSync: flushSync,
+            createPortal: function (child) { return child; },
+            findDOMNode: function () { return null; }
+          };
+        }
       }
       return require(name);
     };

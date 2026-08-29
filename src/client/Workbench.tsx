@@ -130,10 +130,12 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
 
   useEffect(() => {
     const syncSidebar = () => {
-      const add = Array.from(document.querySelectorAll('button')).find((button) =>
-        /添加工作区|Add workspace/.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''}`),
+      const settings = Array.from(document.querySelectorAll('button')).find(
+        (button) =>
+          button.getAttribute('aria-haspopup') === 'dialog' &&
+          /设置|Settings/.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`),
       )
-      let el: HTMLElement | null = add?.parentElement ?? null
+      let el: HTMLElement | null = settings?.parentElement ?? null
       while (el && el !== document.body) {
         if (el.offsetHeight > 160 && el.offsetWidth >= 56 && el.offsetWidth < 420) {
           document.documentElement.style.setProperty('--ow-sidebar-left', `${el.offsetWidth}px`)
