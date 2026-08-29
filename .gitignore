@@ -1,0 +1,9 @@
+node_modules/
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+界面设计参考/
+要求.md

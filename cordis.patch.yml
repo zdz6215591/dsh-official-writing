@@ -1,0 +1,9 @@
+# dsh-official-writing — host composition patch.
+# Installed with: dsh plugin --profile web add <path-to-this-package>
+#
+# The client half is discovered from package.json `dsh.client` once this
+# host row is enabled in the Loader tree.
+
+- insert:
+    - id: official-writing
+      name: dsh-official-writing
