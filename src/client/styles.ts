@@ -30,9 +30,9 @@ export const STYLES = `
 .ow-mode-watermark span{font-size:clamp(1.1rem,2.2vw,1.45rem);font-weight:700;letter-spacing:.2em;color:rgba(0,0,0,.08);user-select:none}
 .ow-mode-watermark.encrypted span{color:rgba(153,27,27,.12)}
 .ow-workspace{flex:1;min-height:0;display:flex;justify-content:center;overflow:hidden;position:relative;z-index:2}
-.ow-stage{display:flex;align-items:stretch;justify-content:center;gap:36px;width:min(1180px,100%);height:100%;padding:1.6rem 1.25rem 5.5rem;min-height:0;overflow:hidden}
+.ow-stage{display:flex;align-items:stretch;justify-content:center;gap:36px;width:min(1180px,100%);height:100%;padding:1.25rem 1.25rem 1.25rem;min-height:0;overflow:hidden}
 .ow-doc-scroll{flex:1 1 auto;min-width:0;max-width:760px;overflow:auto;align-self:stretch;scrollbar-width:thin}
-.ow-paper{background:var(--ow-paper);border-radius:22px;border:1px solid var(--ow-line);box-shadow:0 1px 2px rgba(0,0,0,.03),0 20px 50px rgba(0,0,0,.06);min-height:calc(100% - 8px);position:relative;isolation:isolate}
+.ow-paper{background:var(--ow-paper);border-radius:22px;border:1px solid var(--ow-line);box-shadow:0 1px 2px rgba(0,0,0,.03),0 20px 50px rgba(0,0,0,.06);min-height:100%;position:relative;isolation:isolate}
 .ow-paper-topbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.9rem 1.75rem;position:sticky;top:0;z-index:8;border-bottom:1px solid var(--ow-line);border-radius:22px 22px 0 0;background:rgba(255,255,255,.82);backdrop-filter:blur(18px)}
 .ow-meta-left{display:flex;align-items:center;gap:.55rem;min-width:0}
 .ow-paper-badge{font-size:.68rem;font-weight:600;letter-spacing:.04em;color:var(--ow-muted);background:rgba(0,0,0,.04);border:1px solid var(--ow-line);padding:.2rem .55rem;border-radius:999px;flex-shrink:0}
@@ -40,8 +40,8 @@ export const STYLES = `
 .ow-char-count{display:flex;align-items:baseline;gap:.3rem;flex-shrink:0;font-variant-numeric:tabular-nums}
 .ow-char-count .num{font-size:1.1rem;font-weight:650}
 .ow-char-count .unit{font-size:.72rem;color:var(--ow-muted)}
-.ow-paper-body{padding:52px 72px 72px}
-.ow-root .ProseMirror{outline:none;min-height:62vh;font-family:var(--ow-font-body);font-size:16px;line-height:2;color:#111;letter-spacing:.04em}
+.ow-paper-body{padding:52px 72px 40px}
+.ow-root .ProseMirror{outline:none;min-height:0;font-family:var(--ow-font-body);font-size:16px;line-height:2;color:#111;letter-spacing:.04em}
 .ow-root .ProseMirror p{margin:0 0 1.05em;text-indent:2em;text-align:justify}
 .ow-root .ProseMirror h1{text-indent:0;text-align:center;font-family:var(--ow-font-title);font-size:28px;font-weight:400;line-height:1.55;letter-spacing:.12em;margin:.2em 0 1.6em}
 .ow-root .ProseMirror h2,.ow-root .ProseMirror h3{text-indent:0;font-weight:600;margin:1.1em 0 .55em}
@@ -57,13 +57,13 @@ export const STYLES = `
 .ow-audit-insert{box-shadow:inset 2px 0 0 var(--ow-ok);background:rgba(22,163,74,.05);cursor:pointer}
 .ow-audit-active{background:rgba(0,0,0,.06);box-shadow:0 0 0 2px rgba(0,0,0,.08)}
 .ow-audit-applied{background:rgba(22,163,74,.22);border-radius:2px;cursor:pointer;box-shadow:inset 0 -2px 0 rgba(22,163,74,.45)}
-.ow-comment-pane{width:300px;flex:0 0 300px;display:flex;flex-direction:column;min-height:0;align-self:stretch;border-left:1px solid var(--ow-line);background:rgba(247,247,248,.55)}
+.ow-comment-pane{width:300px;flex:0 0 300px;display:flex;flex-direction:column;min-height:0;align-self:stretch;border-left:1px solid var(--ow-line);background:transparent}
 .ow-comment-pane-head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.85rem .85rem .5rem}
 .ow-comment-head-left{display:flex;align-items:center;gap:.4rem}
 .ow-comment-pane-head h3{margin:0;font-size:.78rem;font-weight:600;letter-spacing:.04em}
 .ow-comment-count{font-size:.7rem;color:var(--ow-muted);background:rgba(0,0,0,.04);padding:.12rem .45rem;border-radius:999px}
 .ow-comment-busy{font-size:.72rem;color:var(--ow-muted)}
-.ow-comment-scroll{flex:1;min-height:0;overflow:auto;padding:0 .7rem 1.2rem;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}
+.ow-comment-scroll{flex:1;min-height:0;overflow:auto;padding:0 .7rem .7rem;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}
 .ow-comment-empty{padding:2rem 1rem;text-align:center;color:var(--ow-faint);font-size:.78rem;line-height:1.65}
 .ow-anno-card{background:rgba(255,255,255,.94);border:1px solid var(--ow-line);border-radius:12px;padding:.7rem .75rem;cursor:pointer}
 .ow-anno-card:hover,.ow-anno-card.active{border-color:rgba(0,0,0,.16);box-shadow:0 8px 24px rgba(0,0,0,.05)}
@@ -165,17 +165,16 @@ export const STYLES = `
 .ow-crash{position:fixed;inset:auto 24px 24px auto;z-index:90;max-width:360px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid rgba(153,27,27,.25);color:#991b1b;box-shadow:0 8px 28px rgba(0,0,0,.12);pointer-events:auto}
 .ow-crash strong{display:block;margin-bottom:6px}
 .ow-crash p{margin:0;font-size:13px;line-height:1.5;color:#7f1d1d}
-[data-ow-settings="wide"] > button[aria-haspopup="dialog"]{width:calc(100% - 48px) !important;max-width:calc(100% - 48px);overflow:hidden}
-[data-ow-settings="wide"] > button[aria-haspopup="dialog"] span{white-space:nowrap !important;overflow:hidden;text-overflow:ellipsis}
-.ow-rail-host{position:fixed;z-index:45;pointer-events:auto;display:none}
-body[data-ow-open] .ow-rail-host{display:none !important}
-.ow-rail-host > button{width:100% !important;height:100% !important;margin:0 !important;padding:0 !important;gap:0 !important;justify-content:center !important}
+.ow-settings-twin{box-sizing:border-box;cursor:pointer;width:calc(100% + 4px);height:42px;color:var(--dsw-alias-label-primary);background:transparent;border:none;border-radius:12px;flex:none;align-items:center;justify-content:flex-end;gap:8px;margin:4px -2px;padding:0 10px 0 8px;font-family:inherit;font-size:14px;line-height:22px;display:flex;overflow:hidden;white-space:nowrap}
+.ow-settings-twin:hover,.ow-settings-twin.on{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
+.ow-settings-twin.rail{border-radius:50%;justify-content:center;gap:0;width:36px;height:36px;margin:8px 0 10px;padding:0}
+.ow-settings-twin span{white-space:nowrap}
 @media (max-width:1080px){
   .ow-comment-pane{width:240px;flex-basis:240px}
-  .ow-paper-body{padding:36px 36px 56px}
+  .ow-paper-body{padding:36px 36px 32px}
 }
 @media (max-width:860px){
-  .ow-stage{gap:0;padding:1rem .75rem 5.5rem}
+  .ow-stage{gap:0;padding:1rem .75rem}
   .ow-comment-pane{display:none}
   .ow-paper-body{padding:28px 22px 40px}
   .ow-doc-scroll{max-width:none}

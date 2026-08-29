@@ -4,25 +4,18 @@ import { Workbench } from './Workbench.tsx'
 import { mountWritingRemote } from './remote.ts'
 import { STYLES } from './styles.ts'
 
-const RAIL_ATTR = 'data-ow-rail'
-const SETTINGS_MARK = 'data-ow-settings'
-
-function buttonLabel(el: Element): string {
-  const button = el as HTMLElement
-  return `${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`
-}
-
-function findSettingsButton(): HTMLButtonElement | null {
-  const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[]
-  return (
-    buttons.find(
-      (button) => button.getAttribute('aria-haspopup') === 'dialog' && /设置|Settings/.test(buttonLabel(button)),
-    ) || null
+function PenIcon({ size = 16 }: { size?: number }) {
+  return createElement(
+    'svg',
+    { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true },
+    createElement('path', {
+      d: 'M4 2.5h5.2L13 6.3V13a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13V4A1.5 1.5 0 0 1 4.5 2.5H4z',
+      stroke: 'currentColor',
+      strokeWidth: '1.25',
+    }),
+    createElement('path', { d: 'M9 2.6V6h3.3', stroke: 'currentColor', strokeWidth: '1.25' }),
+    createElement('path', { d: 'M6.2 11.6 10.4 7.4l1.2 1.2-4.2 4.2H6.2v-1.2z', fill: 'currentColor' }),
   )
-}
-
-function iconSvg(size: number): string {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 2.5h5.2L13 6.3V13a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13V4A1.5 1.5 0 0 1 4.5 2.5H4z" stroke="currentColor" stroke-width="1.25"/><path d="M9 2.6V6h3.3" stroke="currentColor" stroke-width="1.25"/><path d="M6.2 11.6 10.4 7.4l1.2 1.2-4.2 4.2H6.2v-1.2z" fill="currentColor"/></svg>`
 }
 
 class OverlayGuard extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -46,7 +39,7 @@ class OverlayGuard extends Component<{ children: ReactNode }, { error: string | 
   }
 }
 
-export const inject = ['slots']
+export const inject = ['slots', 'remote']
 
 export function apply(ctx: Context) {
   const slots = ctx.get('slots') as
@@ -69,7 +62,6 @@ export function apply(ctx: Context) {
   const EVENT = 'ow-official-writing'
   const setOpen = (next: boolean) => {
     open = next
-    document.body.toggleAttribute('data-ow-open', next)
     window.dispatchEvent(new CustomEvent(EVENT, { detail: next }))
     notify()
   }
@@ -131,94 +123,43 @@ export function apply(ctx: Context) {
     )
   }
 
+  function FooterEntry({ wide }: { wide?: boolean }) {
+    const [pressed, setPressed] = useState(open)
+    useEffect(() => subscribe(() => setPressed(open)), [])
+    return createElement(
+      'button',
+      {
+        type: 'button',
+        className: `ow-settings-twin${wide ? '' : ' rail'}${pressed ? ' on' : ''}`,
+        title: '写作助手',
+        'aria-label': '写作助手',
+        'aria-pressed': pressed,
+        onClick: (event: { stopPropagation: () => void }) => {
+          event.stopPropagation()
+          toggle()
+        },
+      },
+      createElement(PenIcon, { size: wide ? 16 : 18 }),
+      wide ? createElement('span', null, '写作助手') : null,
+    )
+  }
+
   slots.inject('shell.overlay', () =>
     slots.register(
-      { name: 'shell.overlay', id: 'official-writing', order: 40, label: '公文写作助手' },
+      { name: 'shell.overlay', id: 'official-writing', order: 40, label: '写作助手' },
       Overlay,
     ),
   )
 
-  ctx.effect(() => {
-    const host = document.createElement('div')
-    host.setAttribute(RAIL_ATTR, '1')
-    host.className = 'ow-rail-host'
-    document.body.appendChild(host)
-
-    const ensureButton = (settings: HTMLButtonElement, wide: boolean) => {
-      const existing = host.querySelector('button')
-      const pressed = String(open)
-      if (existing && host.getAttribute('data-wide') === String(wide) && existing.getAttribute('aria-pressed') === pressed) {
-        return
-      }
-      host.replaceChildren()
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.className = settings.className
-      button.title = '公文写作助手'
-      button.setAttribute('aria-label', '公文写作助手')
-      button.setAttribute('aria-pressed', pressed)
-      button.innerHTML = iconSvg(wide ? 16 : 18)
-      button.addEventListener('click', (event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        toggle()
-      })
-      host.appendChild(button)
-      host.setAttribute('data-wide', String(wide))
-    }
-
-    const place = () => {
-      if (open) {
-        host.style.display = 'none'
-        return
-      }
-      const settings = findSettingsButton()
-      if (!settings) {
-        host.style.display = 'none'
-        return
-      }
-      const parent = settings.parentElement
-      const rail = settings.offsetWidth <= 48 || /\brail\b/i.test(settings.className)
-      if (parent) parent.setAttribute(SETTINGS_MARK, rail ? 'rail' : 'wide')
-      const rect = settings.getBoundingClientRect()
-      if (rect.width < 8 || rect.height < 8) {
-        host.style.display = 'none'
-        return
-      }
-      ensureButton(settings, !rail)
-      host.style.display = 'block'
-      const size = Math.round(rect.height)
-      if (rail) {
-        host.style.left = `${Math.round(rect.left)}px`
-        host.style.top = `${Math.round(rect.top - size - 8)}px`
-        host.style.width = `${size}px`
-        host.style.height = `${size}px`
-        return
-      }
-      host.style.left = `${Math.round(rect.right + 6)}px`
-      host.style.top = `${Math.round(rect.top)}px`
-      host.style.width = `${size}px`
-      host.style.height = `${size}px`
-    }
-
-    place()
-    const unsub = subscribe(() => place())
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    const mo = new MutationObserver((records) => {
-      if (records.every((record) => host.contains(record.target) || record.target === host)) return
-      place()
-    })
-    mo.observe(document.body, { childList: true, subtree: true })
-    const timer = window.setInterval(place, 500)
-    return () => {
-      unsub()
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-      mo.disconnect()
-      window.clearInterval(timer)
-      document.querySelectorAll(`[${SETTINGS_MARK}]`).forEach((node) => node.removeAttribute(SETTINGS_MARK))
-      host.remove()
-    }
-  })
+  slots.inject('sidebar.footer.action', () =>
+    slots.register(
+      {
+        name: 'sidebar.footer.action',
+        id: 'official-writing-entry',
+        order: 20,
+        label: '写作助手',
+      },
+      FooterEntry,
+    ),
+  )
 }

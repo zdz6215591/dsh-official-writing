@@ -2,25 +2,58 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { CatalogSnapshot, CompleteRequest, JobSnapshot } from '../shared/types.ts'
 import TYPERT_REMOTE from '../typert.remote-client.ts'
 
-type RemoteNs = {
+export type RemoteNs = {
   catalog: () => Promise<{ ok: true; value: CatalogSnapshot } | { ok: false; error: { message: string } }>
-  startJob: (request: CompleteRequest) => Promise<{ ok: true; value: JobSnapshot } | { ok: false; error: { message: string } }>
+  startJob: (
+    request: CompleteRequest,
+  ) => Promise<{ ok: true; value: JobSnapshot } | { ok: false; error: { message: string } }>
   pollJob: (jobId: string) => Promise<{ ok: true; value: JobSnapshot } | { ok: false; error: { message: string } }>
   cancelJob: (jobId: string) => Promise<{ ok: true; value: JobSnapshot } | { ok: false; error: { message: string } }>
+}
+
+let cached: RemoteNs | null = null
+const waiters: Array<(api: RemoteNs) => void> = []
+
+function remember(api: RemoteNs) {
+  cached = api
+  for (const waiter of waiters) waiter(api)
+  waiters.length = 0
 }
 
 export async function mountWritingRemote(ctx: Context): Promise<() => void> {
   const remote = ctx.get('remote') as { $mount?: (c: unknown) => Promise<() => Promise<void>> } | undefined
   if (!remote?.$mount) return () => undefined
-  const dispose = await remote.$mount(TYPERT_REMOTE)
+  const disposeMount = await remote.$mount(TYPERT_REMOTE)
+  const disposeFiber = ctx.inject(['remote.officialWriting'], (sub: Context) => {
+    const api = sub.get('remote.officialWriting') as RemoteNs | undefined
+    if (!api) return
+    remember({
+      catalog: api.catalog,
+      startJob: api.startJob,
+      pollJob: api.pollJob,
+      cancelJob: api.cancelJob,
+    })
+  }) as unknown as (() => void) | undefined
   return () => {
-    void dispose()
+    cached = null
+    disposeFiber?.()
+    void disposeMount()
   }
 }
 
-export function writingApi(ctx: Context): RemoteNs | null {
-  const remote = ctx.get('remote') as { officialWriting?: RemoteNs } | undefined
-  return remote?.officialWriting ?? null
+export function writingApi(): RemoteNs | null {
+  return cached
+}
+
+export async function waitWritingApi(timeoutMs = 8000): Promise<RemoteNs> {
+  if (cached) return cached
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('公文写作通道尚未就绪')), timeoutMs)
+    waiters.push((api) => {
+      clearTimeout(timer)
+      resolve(api)
+    })
+  })
 }
 
 function unwrap<T>(result: { ok: true; value: T } | { ok: false; error: { message: string } }): T {
@@ -29,8 +62,8 @@ function unwrap<T>(result: { ok: true; value: T } | { ok: false; error: { messag
 }
 
 export async function fetchCatalog(ctx: Context): Promise<CatalogSnapshot> {
-  const api = writingApi(ctx)
-  if (!api) throw new Error('公文写作通道尚未就绪')
+  void ctx
+  const api = cached ?? (await waitWritingApi())
   return unwrap(await api.catalog())
 }
 
@@ -43,8 +76,8 @@ export async function runStreamingJob(
   },
   signal?: AbortSignal,
 ): Promise<string> {
-  const api = writingApi(ctx)
-  if (!api) throw new Error('公文写作通道尚未就绪')
+  void ctx
+  const api = cached ?? (await waitWritingApi())
   const started = unwrap(await api.startJob(request))
   let last = started.text || ''
   if (last) handlers.onDelta?.(last)
@@ -60,7 +93,7 @@ export async function runStreamingJob(
     let snap = started
     while (!snap.done) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-      await sleep(48, signal)
+      await sleep(request.task === 'autocomplete' ? 16 : 32, signal)
       snap = unwrap(await api.pollJob(started.jobId))
       if (snap.text.length > last.length) {
         handlers.onDelta?.(snap.text.slice(last.length))

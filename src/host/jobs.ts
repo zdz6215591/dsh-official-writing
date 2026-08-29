@@ -18,7 +18,7 @@ import { normalizeDocType } from '../shared/docTypes.ts'
 import type { AuditIssue, CompleteRequest, JobSnapshot, RewriteMode } from '../shared/types.ts'
 import { parseRouteKey } from '../shared/types.ts'
 
-export const STREAM_TIMEOUT_MS = 20_000
+export const STREAM_TIMEOUT_MS = 12_000
 export const AUDIT_TIMEOUT_MS = 35_000
 
 export interface JobRecord extends JobSnapshot {
@@ -185,9 +185,9 @@ export async function runJob(
           provider: route.provider,
           model: route.model,
           system,
-          messages: [userMessage(`光标前上下文：\n${before.slice(-2400)}`)],
-          temperature: 0.3,
-          maxTokens: 80,
+          messages: [userMessage(`光标前上下文：\n${before.slice(-800)}`)],
+          temperature: 0.2,
+          maxTokens: 48,
           signal: clock.signal,
         },
         (delta) => {
