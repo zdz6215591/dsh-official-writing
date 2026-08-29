@@ -161,9 +161,14 @@ export const STYLES = `
 .ow-confirm{width:min(420px,100%);background:#fff;border-radius:16px;padding:1.2rem 1.3rem;border:1px solid var(--ow-line)}
 .ow-confirm h3{margin:0 0 .4rem}
 .ow-confirm p{margin:0;color:var(--ow-muted);font-size:.86rem;line-height:1.55}
+.ow-rail-host{position:fixed;z-index:80;pointer-events:auto;display:none}
+.ow-rail-host .ow-rail-btn{width:100%;height:100%;border-radius:50%}
 .ow-rail-btn{width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:var(--dsw-alias-label-secondary,#6b6b6b);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;flex:none}
 .ow-rail-btn:hover,.ow-rail-btn[aria-pressed="true"]{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
 .ow-rail-btn svg{display:block}
+.ow-footer-entry{width:100%;height:36px;border:none;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,#6b6b6b);display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;padding:0 8px;font:inherit;font-size:13px}
+.ow-footer-entry:hover,.ow-footer-entry.on{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));color:var(--dsw-alias-label-primary,#111)}
+.ow-footer-entry svg{flex:none}
 @media (max-width:1080px){
   .ow-comment-pane{width:240px;flex-basis:240px}
   .ow-paper-body{padding:36px 36px 56px}

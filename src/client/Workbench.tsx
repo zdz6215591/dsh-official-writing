@@ -130,8 +130,10 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
 
   useEffect(() => {
     const syncSidebar = () => {
-      const host = document.querySelector('[data-ow-rail]')
-      let el = host?.parentElement ?? null
+      const add = Array.from(document.querySelectorAll('button')).find((button) =>
+        /添加工作区|Add workspace/.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''}`),
+      )
+      let el: HTMLElement | null = add?.parentElement ?? null
       while (el && el !== document.body) {
         if (el.offsetHeight > 160 && el.offsetWidth >= 56 && el.offsetWidth < 420) {
           document.documentElement.style.setProperty('--ow-sidebar-left', `${el.offsetWidth}px`)
@@ -139,6 +141,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
         }
         el = el.parentElement
       }
+      document.documentElement.style.setProperty('--ow-sidebar-left', '56px')
     }
     syncSidebar()
     window.addEventListener('resize', syncSidebar)
