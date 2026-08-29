@@ -3,6 +3,7 @@ import test from 'node:test'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
 import { applyIssueToText, locateInText, relocateIssues } from '../shared/locate.ts'
+import { pickOffEffort, pickRequestedEffort } from '../shared/effort.ts'
 import { autocompleteSystem, cleanModelText, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
 
@@ -100,4 +101,17 @@ test('local route detection', () => {
   assert.equal(isLocalRoute('ollama', 'Ollama'), true)
   assert.equal(isLocalRoute('deepseek-official', 'DeepSeek'), false)
   assert.equal(isLocalRoute('openai', 'vLLM OpenAI-compatible'), true)
+})
+
+test('pickOffEffort prefers true off over low', () => {
+  assert.equal(
+    pickOffEffort([
+      { id: 'low', name: 'Low' },
+      { id: 'high', name: 'High' },
+      { id: 'off', name: 'Off' },
+    ]),
+    'off',
+  )
+  assert.equal(pickOffEffort([{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }]), undefined)
+  assert.equal(pickRequestedEffort('high', [{ id: 'off', name: 'Off' }, { id: 'high', name: 'High' }]), 'high')
 })

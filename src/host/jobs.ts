@@ -5,6 +5,7 @@ import {
   type GenerateOptions,
   type ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
+import { pickOffEffort, pickRequestedEffort } from '../shared/effort.ts'
 import { asRecord, asString, parseJsonObject } from '../shared/json.ts'
 import { locateInText, normalizeAuditType } from '../shared/locate.ts'
 import { isLocalRoute } from '../shared/local.ts'
@@ -18,8 +19,8 @@ import { normalizeDocType } from '../shared/docTypes.ts'
 import type { AuditIssue, CompleteRequest, JobSnapshot, RewriteMode } from '../shared/types.ts'
 import { parseRouteKey } from '../shared/types.ts'
 
-export const STREAM_TIMEOUT_MS = 18_000
-export const AUDIT_TIMEOUT_MS = 35_000
+export const STREAM_TIMEOUT_MS = 8_000
+export const AUDIT_TIMEOUT_MS = 20_000
 
 export interface JobRecord extends JobSnapshot {
   abort: AbortController
@@ -49,18 +50,8 @@ function withTimeout(signal: AbortSignal | undefined, ms: number): { signal: Abo
   }
 }
 
-function pickEffort(
-  requested: string | undefined,
-  efforts: { id: string; name?: string }[],
-): ReasoningEffortId | undefined {
-  if (!efforts.length) return undefined
-  if (requested && efforts.some((item) => item.id === requested)) {
-    return requested as ReasoningEffortId
-  }
-  const lowest = efforts.find((item) =>
-    /low|min|none|off|disable|chat|fast|minimal/i.test(`${item.id} ${item.name || ''}`),
-  )
-  return (lowest?.id || efforts[0]!.id) as ReasoningEffortId
+function asEffort(value: string | undefined): ReasoningEffortId | undefined {
+  return value ? (value as ReasoningEffortId) : undefined
 }
 
 export async function resolveRoute(
@@ -103,6 +94,25 @@ function userMessage(text: string) {
   })
 }
 
+function deadline<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise
+  if (signal.aborted) return Promise.reject(new Error('TIMEOUT'))
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(new Error('TIMEOUT'))
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(value)
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
+}
+
 async function streamText(
   ctx: Context,
   options: GenerateOptions,
@@ -110,24 +120,48 @@ async function streamText(
 ): Promise<string> {
   const assembler = new BlockAssembler()
   for await (const chunk of ctx.llm.stream(options)) {
+    if (options.signal?.aborted) throw new Error('TIMEOUT')
     assembler.push(chunk)
     if (chunk.type === 'text-delta' && chunk.text) onDelta(chunk.text)
   }
   const error = finishError(assembler.finish)
   if (error) throw error
-  const text = assembler
+  return assembler
     .blocks()
     .filter((block) => block.type === 'text')
     .map((block) => block.text)
     .join('')
-  return text
+}
+
+async function streamMaybeOffThinking(
+  ctx: Context,
+  options: GenerateOptions,
+  onDelta: (text: string) => void,
+  efforts: { id: string; name: string }[],
+  requested?: string,
+): Promise<string> {
+  const off = pickOffEffort(efforts)
+  const effort = requested ? asEffort(pickRequestedEffort(requested, efforts)) : asEffort(off || 'off')
+  const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta), next.signal)
+  try {
+    return await call(effort ? { ...options, reasoningEffort: effort } : options)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!/UNSUPPORTED_REASONING_EFFORT/i.test(message)) throw error
+    return await call(options)
+  }
 }
 
 function buildAuditIssues(raw: string, source: string): AuditIssue[] {
-  const parsed = parseJsonObject(raw)
+  let parsed: unknown
+  try {
+    parsed = parseJsonObject(raw)
+  } catch {
+    return []
+  }
   const record = asRecord(parsed)
   const list = record?.suggestions
-  if (!Array.isArray(list)) throw new Error('校核结果缺少 suggestions')
+  if (!Array.isArray(list)) return []
   const issues: AuditIssue[] = []
   let i = 0
   for (const item of list) {
@@ -168,13 +202,6 @@ export async function runJob(
   const timeoutMs = request.task === 'audit' ? AUDIT_TIMEOUT_MS : STREAM_TIMEOUT_MS
   const clock = withTimeout(job.abort.signal, timeoutMs)
   try {
-    const effort =
-      request.task === 'autocomplete'
-        ? pickEffort(undefined, route.efforts)
-        : request.task === 'audit' && request.depth !== 'deep'
-          ? pickEffort(undefined, route.efforts)
-          : pickEffort(request.effort, route.efforts)
-
     if (request.task === 'autocomplete') {
       const before = request.textBefore || request.text || ''
       const system = autocompleteSystem({
@@ -182,24 +209,24 @@ export async function runJob(
         title: request.title,
         intent: request.intent,
       })
-      const raw = await streamText(
+      const raw = await streamMaybeOffThinking(
         ctx,
         {
           provider: route.provider,
           model: route.model,
           system,
-          messages: [userMessage(`光标前上下文：\n${before.slice(-1200)}`)],
-          temperature: 0.3,
-          maxTokens: 160,
-          ...(effort ? { reasoningEffort: effort } : {}),
+          messages: [userMessage(`光标前上下文：\n${before.slice(-800)}`)],
+          temperature: 0.2,
+          maxTokens: 64,
           signal: clock.signal,
         },
         (delta) => {
           job.text += delta
         },
+        route.efforts,
       )
       const cleaned = cleanModelText(raw || job.text)
-      job.text = (cleaned || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 80)
+      job.text = (cleaned || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 60)
       return
     }
 
@@ -211,7 +238,7 @@ export async function runJob(
         custom: request.custom,
         reference: request.reference,
       })
-      const raw = await streamText(
+      const raw = await streamMaybeOffThinking(
         ctx,
         {
           provider: route.provider,
@@ -230,19 +257,20 @@ export async function runJob(
           ],
           temperature: 0.5,
           maxTokens: 1200,
-          ...(effort ? { reasoningEffort: effort } : {}),
           signal: clock.signal,
         },
         (delta) => {
           job.text += delta
         },
+        route.efforts,
+        request.effort,
       )
       job.text = cleanModelText(raw || job.text)
       return
     }
 
     const system = auditSystem({ docType: request.docType })
-    const raw = await streamText(
+    const raw = await streamMaybeOffThinking(
       ctx,
       {
         provider: route.provider,
@@ -255,12 +283,13 @@ export async function runJob(
         ],
         temperature: 0.1,
         maxTokens: 1800,
-        ...(effort ? { reasoningEffort: effort } : {}),
         signal: clock.signal,
       },
       () => {
         /* 校核等完成后一次性解析，避免半截 JSON 误导前端 */
       },
+      route.efforts,
+      request.depth === 'deep' ? request.effort : undefined,
     )
     const issues = buildAuditIssues(raw, request.text)
     job.text = JSON.stringify({ suggestions: issues })

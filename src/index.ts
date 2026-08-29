@@ -113,7 +113,7 @@ class OfficialWritingGateway extends TypertRemoteService {
       if (job.abort.signal.aborted) {
         job.error = '已取消'
       } else if (error instanceof Error && /TIMEOUT|abort/i.test(error.message)) {
-        job.error = request.task === 'audit' ? '校核超时（35 秒）' : '连接超时（20 秒）'
+        job.error = request.task === 'audit' ? '校核超时' : '联想超时'
       } else {
         job.error = error instanceof Error ? error.message : String(error)
       }

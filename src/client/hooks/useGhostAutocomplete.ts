@@ -128,12 +128,21 @@ export function useGhostAutocomplete(
       }
     }
 
-    const schedule = () => {
+    const schedule = (force = false) => {
+      if (!shouldTrigger(editor) || !enoughContext(editor)) {
+        if (force || !abortRef.current) {
+          clearTimer()
+          abortRef.current?.abort()
+          editor.commands.clearGhost()
+        }
+        return
+      }
+      const pos = editor.state.selection.from
+      if (!force && abortRef.current && !abortRef.current.signal.aborted) return
+      if (!force && timerRef.current) return
       clearTimer()
       abortRef.current?.abort()
       editor.commands.clearGhost()
-      if (!shouldTrigger(editor) || !enoughContext(editor)) return
-      const pos = editor.state.selection.from
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null
         if (!shouldTrigger(editor)) return
@@ -145,7 +154,11 @@ export function useGhostAutocomplete(
     const onTransaction = ({ transaction }: { transaction: any }) => {
       if (transaction.getMeta(ghostPluginKey) !== undefined) return
       if (transaction.getMeta('ow-accept-ghost')) return
-      if (transaction.docChanged || transaction.selectionSet) schedule()
+      if (transaction.docChanged) {
+        schedule(true)
+        return
+      }
+      if (transaction.selectionSet) schedule(false)
     }
 
     editor.on('transaction', onTransaction)

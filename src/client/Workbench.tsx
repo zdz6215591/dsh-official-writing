@@ -29,7 +29,12 @@ function escapeHtml(s: string) {
 }
 
 function parseIssues(raw: string, text: string): AuditIssue[] {
-  const parsed = parseJsonObject(raw)
+  let parsed: unknown
+  try {
+    parsed = parseJsonObject(raw)
+  } catch {
+    return []
+  }
   const record = asRecord(parsed)
   const list = record?.suggestions
   if (!Array.isArray(list)) return []

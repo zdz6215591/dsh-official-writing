@@ -147,7 +147,7 @@ export function ModelCenter({
                             setDraft({ ...draft, [task.effortKey]: e.target.value })
                           }}
                         >
-                          <option value="">{efforts[0]?.name || '最低'}</option>
+                          <option value="">关闭思考</option>
                           {task.effortKey
                             ? efforts.map((effort) => (
                                 <option key={effort.id} value={effort.id}>
