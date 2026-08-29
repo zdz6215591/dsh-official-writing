@@ -115,7 +115,10 @@ class OfficialWritingGateway extends TypertRemoteService {
       } else if (error instanceof Error && /TIMEOUT|abort/i.test(error.message)) {
         job.error = request.task === 'audit' ? '校核超时' : '联想超时'
       } else {
-        job.error = error instanceof Error ? error.message : String(error)
+        const message = error instanceof Error ? error.message : String(error)
+        job.error = /UNSUPPORTED_REASONING_EFFORT|does not support reasoning effort/i.test(message)
+          ? '该模型不支持当前思考档，已按无思考重试仍失败。请换一个 dsh 里能正常对话的模型。'
+          : message
       }
     } finally {
       job.done = true

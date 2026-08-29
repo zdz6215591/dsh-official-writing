@@ -3,7 +3,7 @@ import test from 'node:test'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
 import { applyIssueToText, locateInText, relocateIssues } from '../shared/locate.ts'
-import { pickOffEffort, pickRequestedEffort } from '../shared/effort.ts'
+import { isUnsupportedEffort, pickOffEffort, resolveEffort } from '../shared/effort.ts'
 import { autocompleteSystem, cleanModelText, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
 
@@ -113,5 +113,17 @@ test('pickOffEffort prefers true off over low', () => {
     'off',
   )
   assert.equal(pickOffEffort([{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }]), undefined)
-  assert.equal(pickRequestedEffort('high', [{ id: 'off', name: 'Off' }, { id: 'high', name: 'High' }]), 'high')
+  assert.equal(
+    resolveEffort({ requested: 'high', efforts: [{ id: 'off', name: 'Off' }, { id: 'high', name: 'High' }] }),
+    'high',
+  )
+  assert.equal(resolveEffort({ preferOff: true, efforts: [{ id: 'low', name: 'Low' }] }), undefined)
+  assert.equal(resolveEffort({ preferOff: true, efforts: [] }), undefined)
+  assert.equal(
+    isUnsupportedEffort({
+      code: 'UNSUPPORTED_REASONING_EFFORT',
+      message: 'provider x model y does not support reasoning effort "off"',
+    }),
+    true,
+  )
 })

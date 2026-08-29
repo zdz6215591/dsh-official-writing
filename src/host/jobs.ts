@@ -5,7 +5,7 @@ import {
   type GenerateOptions,
   type ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
-import { pickOffEffort, pickRequestedEffort } from '../shared/effort.ts'
+import { isUnsupportedEffort, resolveEffort } from '../shared/effort.ts'
 import { asRecord, asString, parseJsonObject } from '../shared/json.ts'
 import { locateInText, normalizeAuditType } from '../shared/locate.ts'
 import { isLocalRoute } from '../shared/local.ts'
@@ -27,10 +27,14 @@ export interface JobRecord extends JobSnapshot {
   task: CompleteRequest['task']
 }
 
-export function finishError(finish: { kind: string; failure?: { message?: string } } | undefined): Error | undefined {
+export function finishError(
+  finish: { kind: string; failure?: { message?: string; code?: string } } | undefined,
+): Error | undefined {
   if (!finish) return undefined
   if (finish.kind === 'error' || finish.kind === 'aborted') {
-    return new Error(finish.failure?.message || (finish.kind === 'aborted' ? '已取消' : '模型调用失败'))
+    const error = new Error(finish.failure?.message || (finish.kind === 'aborted' ? '已取消' : '模型调用失败'))
+    if (finish.failure?.code) (error as Error & { code?: string }).code = finish.failure.code
+    return error
   }
   return undefined
 }
@@ -64,27 +68,45 @@ export async function resolveRoute(
   const parsed = parseRouteKey(request.route)
   let provider = parsed?.provider
   let model = parsed?.model
+  let info = provider ? providers.find((item) => item.id === provider) : undefined
 
-  if (!provider || !model) {
-    provider = providers[0]!.id
-    const models = await ctx.llm.listModels(provider)
-    if (!models.length) throw new Error(`提供方 ${providers[0]!.name} 未公布可用模型`)
-    model = models[0]!.id
+  if (!info || !model) {
+    for (const candidate of providers) {
+      if (request.encrypted && !isLocalRoute(candidate.id, candidate.name)) continue
+      try {
+        const listed = await ctx.llm.listModels(candidate.id)
+        const hit = model ? listed.find((item) => item.id === model) : listed[0]
+        if (!hit) continue
+        provider = candidate.id
+        model = hit.id
+        info = candidate
+        break
+      } catch {
+        continue
+      }
+    }
   }
 
-  const info = providers.find((item) => item.id === provider)
-  if (!info) throw new Error(`找不到提供方 ${provider}`)
-  const resolved = await ctx.llm.resolveModelInfo(provider, model)
+  if (!info || !provider || !model) {
+    info = providers[0]!
+    provider = info.id
+    const listed = await ctx.llm.listModels(provider)
+    if (!listed.length) throw new Error(`提供方 ${info.name} 未公布可用模型`)
+    model = listed[0]!.id
+  }
+
+  let efforts: { id: string; name: string }[] = []
+  try {
+    const resolved = await ctx.llm.resolveModelInfo(provider, model)
+    efforts = (resolved.reasoning?.efforts ?? []).map((item) => ({ id: item.id, name: item.name }))
+  } catch {
+    efforts = []
+  }
   const local = isLocalRoute(provider, info.name)
   if (request.encrypted && !local) {
     throw new Error('加密模式禁止把正文送出本地。请先配置可用的本地模型，或改回普通模式。')
   }
-  return {
-    provider,
-    model,
-    local,
-    efforts: (resolved.reasoning?.efforts ?? []).map((item) => ({ id: item.id, name: item.name })),
-  }
+  return { provider, model, local, efforts }
 }
 
 function userMessage(text: string) {
@@ -140,15 +162,14 @@ async function streamMaybeOffThinking(
   efforts: { id: string; name: string }[],
   requested?: string,
 ): Promise<string> {
-  const off = pickOffEffort(efforts)
-  const effort = requested ? asEffort(pickRequestedEffort(requested, efforts)) : asEffort(off || 'off')
+  const effort = asEffort(resolveEffort({ requested, efforts, preferOff: !requested }))
   const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta), next.signal)
   try {
     return await call(effort ? { ...options, reasoningEffort: effort } : options)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (!/UNSUPPORTED_REASONING_EFFORT/i.test(message)) throw error
-    return await call(options)
+    if (!isUnsupportedEffort(error)) throw error
+    const { reasoningEffort: _ignored, ...rest } = options
+    return await call(rest)
   }
 }
 

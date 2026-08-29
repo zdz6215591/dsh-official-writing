@@ -17,11 +17,25 @@ export function pickOffEffort<T extends { id: string; name?: string }>(
   return scored[0]?.item.id
 }
 
-export function pickRequestedEffort<T extends { id: string; name?: string }>(
-  requested: string | undefined,
-  efforts: readonly T[] | undefined,
-): string | undefined {
+/** Only return an id the model actually advertised. Never invent `off`. */
+export function resolveEffort(opts: {
+  requested?: string
+  efforts?: readonly { id: string; name?: string }[]
+  preferOff?: boolean
+}): string | undefined {
+  const efforts = opts.efforts
   if (!efforts?.length) return undefined
-  if (requested && efforts.some((item) => item.id === requested)) return requested
+  if (opts.requested && efforts.some((item) => item.id === opts.requested)) return opts.requested
+  if (opts.preferOff) return pickOffEffort(efforts)
   return pickOffEffort(efforts) || efforts[0]?.id
+}
+
+export function isUnsupportedEffort(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const row = error as { code?: string; message?: string; cause?: unknown }
+  const hay = `${row.code || ''} ${row.message || ''}`
+  if (/UNSUPPORTED_REASONING_EFFORT|does not support reasoning effort|不支持.*推理|不支持.*思考/i.test(hay)) {
+    return true
+  }
+  return row.cause ? isUnsupportedEffort(row.cause) : false
 }

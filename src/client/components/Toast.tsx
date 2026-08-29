@@ -9,17 +9,15 @@ export type ToastState = {
 export function Toast({
   toast,
   onDismiss,
-  duration = 2600,
 }: {
   toast: ToastState
   onDismiss: () => void
-  duration?: number
 }) {
   useEffect(() => {
     if (!toast) return
-    const timer = window.setTimeout(onDismiss, duration)
+    const timer = window.setTimeout(onDismiss, toast.type === 'error' ? 8000 : 2600)
     return () => window.clearTimeout(timer)
-  }, [toast, duration, onDismiss])
+  }, [toast, onDismiss])
   if (!toast) return null
   return (
     <div className={`ow-toast type-${toast.type || 'info'}`} role="status">
