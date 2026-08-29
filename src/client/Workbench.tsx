@@ -84,6 +84,8 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
   }, [])
 
   const editor = useEditor({
+    immediatelyRender: true,
+    shouldRerenderOnTransaction: false,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({ placeholder: '光标停在段末约 5 秒后联想续写…' }),
@@ -103,21 +105,23 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
       setIssues((prev) => {
         if (!prev.length) return prev
         const next = relocateIssues(text, prev)
-        if (next.length !== prev.length) ed.commands.setAuditIssues(next)
-        return next.length === prev.length ? prev : next
+        return next.length === prev.length && next.every((item, i) => item.id === prev[i]?.id) ? prev : next
       })
     },
     onTransaction: ({ editor: ed, transaction }) => {
       const accepted = transaction.getMeta('ow-accept-ghost') as { from: number; to: number } | undefined
-      if (accepted) ed.commands.markApplied(`ghost-${Date.now()}`, accepted.from, accepted.to)
-      const st = auditPluginKey.getState(ed.state)
-      if (st) setActiveId(st.activeId)
+      if (accepted) {
+        queueMicrotask(() => ed.commands.markApplied(`ghost-${Date.now()}`, accepted.from, accepted.to))
+      }
+      const nextId = auditPluginKey.getState(ed.state)?.activeId ?? null
+      setActiveId((prev) => (prev === nextId ? prev : nextId))
     },
   })
 
   useEffect(() => {
-    if (editor && initial.issues.length) editor.commands.setAuditIssues(initial.issues)
-  }, [editor, initial.issues])
+    if (!editor) return
+    editor.commands.setAuditIssues(issues)
+  }, [editor, issues])
 
   const encrypted = isEncrypted(docCtx)
   useGhostAutocomplete(ctx, editor, !showWizard && ghostOn, docCtx, routing, localReady, (msg) =>

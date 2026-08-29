@@ -125,6 +125,7 @@ export function apply(ctx: Context) {
           ctx,
           onClose: () => {
             open = false
+            window.dispatchEvent(new CustomEvent(EVENT, { detail: false }))
             notify()
           },
         }),
@@ -158,7 +159,7 @@ export function apply(ctx: Context) {
       button.title = '公文写作助手'
       button.setAttribute('aria-label', '公文写作助手')
       button.setAttribute('aria-pressed', pressed)
-      button.innerHTML = `${iconSvg(wide ? 16 : 18)}${wide ? '<span>公文写作助手</span>' : ''}`
+      button.innerHTML = iconSvg(wide ? 16 : 18)
       button.addEventListener('click', (event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -184,17 +185,18 @@ export function apply(ctx: Context) {
       }
       ensureButton(settings, !rail)
       host.style.display = 'block'
+      const size = Math.round(rect.height)
       if (rail) {
         host.style.left = `${Math.round(rect.left)}px`
-        host.style.top = `${Math.round(rect.top - rect.height - 8)}px`
-        host.style.width = `${Math.round(rect.width)}px`
-        host.style.height = `${Math.round(rect.height)}px`
+        host.style.top = `${Math.round(rect.top - size - 8)}px`
+        host.style.width = `${size}px`
+        host.style.height = `${size}px`
         return
       }
       host.style.left = `${Math.round(rect.right + 6)}px`
       host.style.top = `${Math.round(rect.top)}px`
-      host.style.width = `${Math.round(rect.width)}px`
-      host.style.height = `${Math.round(rect.height)}px`
+      host.style.width = `${size}px`
+      host.style.height = `${size}px`
     }
 
     place()

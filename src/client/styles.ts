@@ -165,9 +165,10 @@ export const STYLES = `
 .ow-crash{position:fixed;inset:auto 24px 24px auto;z-index:90;max-width:360px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid rgba(153,27,27,.25);color:#991b1b;box-shadow:0 8px 28px rgba(0,0,0,.12);pointer-events:auto}
 .ow-crash strong{display:block;margin-bottom:6px}
 .ow-crash p{margin:0;font-size:13px;line-height:1.5;color:#7f1d1d}
-[data-ow-settings="wide"] > button[aria-haspopup="dialog"]{width:calc(50% - 3px) !important;max-width:calc(50% - 3px)}
+[data-ow-settings="wide"] > button[aria-haspopup="dialog"]{width:calc(100% - 48px) !important;max-width:calc(100% - 48px);overflow:hidden}
+[data-ow-settings="wide"] > button[aria-haspopup="dialog"] span{white-space:nowrap !important;overflow:hidden;text-overflow:ellipsis}
 .ow-rail-host{position:fixed;z-index:50;pointer-events:auto;display:none}
-.ow-rail-host > button{width:100% !important;height:100% !important;margin:0 !important}
+.ow-rail-host > button{width:100% !important;height:100% !important;margin:0 !important;padding:0 !important;gap:0 !important;justify-content:center !important}
 @media (max-width:1080px){
   .ow-comment-pane{width:240px;flex-basis:240px}
   .ow-paper-body{padding:36px 36px 56px}

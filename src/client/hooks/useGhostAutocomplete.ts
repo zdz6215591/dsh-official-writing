@@ -47,6 +47,14 @@ export function useGhostAutocomplete(
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<number | null>(null)
   const seqRef = useRef(0)
+  const onErrorRef = useRef(onError)
+  const docCtxRef = useRef(docCtx)
+  const routingRef = useRef(routing)
+  const localReadyRef = useRef(localReady)
+  onErrorRef.current = onError
+  docCtxRef.current = docCtx
+  routingRef.current = routing
+  localReadyRef.current = localReady
 
   useEffect(() => {
     if (!editor || !enabled) {
@@ -72,8 +80,8 @@ export function useGhostAutocomplete(
     }
 
     const run = async (pos: number) => {
-      if (isEncrypted(docCtx) && !localReady) {
-        onError?.('加密模式无可用本地模型，已禁用智能联想')
+      if (isEncrypted(docCtxRef.current) && !localReadyRef.current) {
+        onErrorRef.current?.('加密模式无可用本地模型，已禁用智能联想')
         return
       }
       const seq = ++seqRef.current
@@ -91,11 +99,11 @@ export function useGhostAutocomplete(
             text: editor.getText(),
             textBefore: editor.state.doc.textBetween(0, safe, '\n'),
             textAfter: editor.state.doc.textBetween(safe, editor.state.doc.content.size, '\n'),
-            docType: docCtx?.docType,
-            title: docCtx?.title,
-            intent: docCtx?.intent,
-            encrypted: isEncrypted(docCtx),
-            route: routing.autocomplete,
+            docType: docCtxRef.current?.docType,
+            title: docCtxRef.current?.title,
+            intent: docCtxRef.current?.intent,
+            encrypted: isEncrypted(docCtxRef.current),
+            route: routingRef.current.autocomplete,
           },
           {
             onDelta: (chunk) => {
@@ -110,14 +118,14 @@ export function useGhostAutocomplete(
         const shown = (finalText || acc).trim()
         if (!shown) {
           editor.commands.clearGhost()
-          onError?.('未生成建议')
+          onErrorRef.current?.('未生成建议')
           return
         }
         editor.commands.setGhost({ pos: safe, text: shown, loading: false })
       } catch (error: any) {
         if (seqRef.current !== seq || error?.name === 'AbortError') return
         editor.commands.clearGhost()
-        onError?.(error?.message || '智能联想失败')
+        onErrorRef.current?.(error?.message || '智能联想失败')
       }
     }
 
@@ -147,5 +155,5 @@ export function useGhostAutocomplete(
       editor.off('transaction', onTransaction)
       cancel()
     }
-  }, [ctx, editor, enabled, docCtx, routing.autocomplete, localReady, onError])
+  }, [ctx, editor, enabled])
 }
