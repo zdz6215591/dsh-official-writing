@@ -7,7 +7,7 @@ export const STYLES = `
   --ow-font-ui:Inter,PingFang SC,Microsoft YaHei,system-ui,sans-serif;
   --ow-font-title:'STZhongsong','华文中宋','Noto Serif SC',serif;
   --ow-font-body:'Noto Serif SC','Source Han Serif SC','Songti SC','SimSun',serif;
-  position:fixed;top:0;right:0;bottom:0;left:var(--ow-sidebar-left,56px);z-index:40;display:flex;flex-direction:column;
+  position:fixed;top:0;right:0;bottom:0;left:var(--ow-sidebar-left,56px);z-index:70;display:flex;flex-direction:column;
   background:var(--ow-canvas);color:var(--ow-ink);font-family:var(--ow-font-ui);
   pointer-events:auto;
 }
@@ -161,13 +161,14 @@ export const STYLES = `
 .ow-confirm{width:min(420px,100%);background:#fff;border-radius:16px;padding:1.2rem 1.3rem;border:1px solid var(--ow-line)}
 .ow-confirm h3{margin:0 0 .4rem}
 .ow-confirm p{margin:0;color:var(--ow-muted);font-size:.86rem;line-height:1.55}
-.ow-overlay-host{position:relative;z-index:40;pointer-events:auto}
+.ow-overlay-host{position:relative;z-index:70;pointer-events:auto}
 .ow-crash{position:fixed;inset:auto 24px 24px auto;z-index:90;max-width:360px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid rgba(153,27,27,.25);color:#991b1b;box-shadow:0 8px 28px rgba(0,0,0,.12);pointer-events:auto}
 .ow-crash strong{display:block;margin-bottom:6px}
 .ow-crash p{margin:0;font-size:13px;line-height:1.5;color:#7f1d1d}
 [data-ow-settings="wide"] > button[aria-haspopup="dialog"]{width:calc(100% - 48px) !important;max-width:calc(100% - 48px);overflow:hidden}
 [data-ow-settings="wide"] > button[aria-haspopup="dialog"] span{white-space:nowrap !important;overflow:hidden;text-overflow:ellipsis}
-.ow-rail-host{position:fixed;z-index:50;pointer-events:auto;display:none}
+.ow-rail-host{position:fixed;z-index:45;pointer-events:auto;display:none}
+body[data-ow-open] .ow-rail-host{display:none !important}
 .ow-rail-host > button{width:100% !important;height:100% !important;margin:0 !important;padding:0 !important;gap:0 !important;justify-content:center !important}
 @media (max-width:1080px){
   .ow-comment-pane{width:240px;flex-basis:240px}

@@ -67,11 +67,13 @@ export function apply(ctx: Context) {
     return () => listeners.delete(listener)
   }
   const EVENT = 'ow-official-writing'
-  const toggle = () => {
-    open = !open
-    window.dispatchEvent(new CustomEvent(EVENT, { detail: open }))
+  const setOpen = (next: boolean) => {
+    open = next
+    document.body.toggleAttribute('data-ow-open', next)
+    window.dispatchEvent(new CustomEvent(EVENT, { detail: next }))
     notify()
   }
+  const toggle = () => setOpen(!open)
 
   ctx.effect(() => {
     let disposed = false
@@ -123,11 +125,7 @@ export function apply(ctx: Context) {
         null,
         createElement(Workbench, {
           ctx,
-          onClose: () => {
-            open = false
-            window.dispatchEvent(new CustomEvent(EVENT, { detail: false }))
-            notify()
-          },
+          onClose: () => setOpen(false),
         }),
       ),
     )
@@ -170,6 +168,10 @@ export function apply(ctx: Context) {
     }
 
     const place = () => {
+      if (open) {
+        host.style.display = 'none'
+        return
+      }
       const settings = findSettingsButton()
       if (!settings) {
         host.style.display = 'none'

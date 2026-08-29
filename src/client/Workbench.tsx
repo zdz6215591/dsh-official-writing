@@ -21,6 +21,7 @@ import { Toast, type ToastState } from './components/Toast.tsx'
 import { WelcomeWizard } from './components/WelcomeWizard.tsx'
 import { useGhostAutocomplete } from './hooks/useGhostAutocomplete.ts'
 import { fetchCatalog, runStreamingJob } from './remote.ts'
+import { applySidebarLeft } from './sidebar.ts'
 import { clearState, loadState, saveState } from './storage.ts'
 
 function escapeHtml(s: string) {
@@ -133,25 +134,42 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
   }, [ghostOn, editor])
 
   useEffect(() => {
-    const syncSidebar = () => {
-      const settings = Array.from(document.querySelectorAll('button')).find(
-        (button) =>
-          button.getAttribute('aria-haspopup') === 'dialog' &&
-          /设置|Settings/.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`),
-      )
-      let el: HTMLElement | null = settings?.parentElement ?? null
+    const sync = () => applySidebarLeft()
+    sync()
+    window.addEventListener('resize', sync)
+    const observed = new Set<Element>()
+    const ro = new ResizeObserver(sync)
+    const attach = () => {
+      const settings = Array.from(document.querySelectorAll('button')).find((button) => {
+        const label = `${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`
+        return button.getAttribute('aria-haspopup') === 'dialog' && /设置|Settings/.test(label)
+      })
+      let el: HTMLElement | null = settings ?? null
       while (el && el !== document.body) {
-        if (el.offsetHeight > 160 && el.offsetWidth >= 56 && el.offsetWidth < 420) {
-          document.documentElement.style.setProperty('--ow-sidebar-left', `${el.offsetWidth}px`)
-          return
+        if (!observed.has(el)) {
+          ro.observe(el)
+          observed.add(el)
         }
         el = el.parentElement
       }
-      document.documentElement.style.setProperty('--ow-sidebar-left', '56px')
     }
-    syncSidebar()
-    window.addEventListener('resize', syncSidebar)
-    return () => window.removeEventListener('resize', syncSidebar)
+    attach()
+    const mo = new MutationObserver(() => {
+      attach()
+      sync()
+    })
+    mo.observe(document.body, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ['data-sidebar-collapsed', 'class', 'style'],
+    })
+    const timer = window.setInterval(sync, 200)
+    return () => {
+      window.removeEventListener('resize', sync)
+      ro.disconnect()
+      mo.disconnect()
+      window.clearInterval(timer)
+    }
   }, [])
 
   useEffect(() => {
