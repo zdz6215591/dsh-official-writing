@@ -165,10 +165,21 @@ export const STYLES = `
 .ow-crash{position:fixed;inset:auto 24px 24px auto;z-index:90;max-width:360px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid rgba(153,27,27,.25);color:#991b1b;box-shadow:0 8px 28px rgba(0,0,0,.12);pointer-events:auto}
 .ow-crash strong{display:block;margin-bottom:6px}
 .ow-crash p{margin:0;font-size:13px;line-height:1.5;color:#7f1d1d}
-.ow-settings-twin{box-sizing:border-box;cursor:pointer;width:calc(100% + 4px);height:42px;color:var(--dsw-alias-label-primary);background:transparent;border:none;border-radius:12px;flex:none;align-items:center;justify-content:flex-end;gap:8px;margin:4px -2px;padding:0 10px 0 8px;font-family:inherit;font-size:14px;line-height:22px;display:flex;overflow:hidden;white-space:nowrap}
+.ow-settings-twin{box-sizing:border-box;cursor:pointer;width:auto;height:42px;color:var(--dsw-alias-label-primary);background:transparent;border:none;border-radius:12px;flex:none;align-items:center;justify-content:flex-end;gap:8px;margin:4px 0;padding:0 10px 0 8px;font-family:inherit;font-size:14px;line-height:22px;display:flex;overflow:hidden;white-space:nowrap}
 .ow-settings-twin:hover,.ow-settings-twin.on{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
 .ow-settings-twin.rail{border-radius:50%;justify-content:center;gap:0;width:36px;height:36px;margin:8px 0 10px;padding:0}
 .ow-settings-twin span{white-space:nowrap}
+[class*="_footArea"]:has(.ow-settings-twin){display:flex !important;flex-direction:row !important;align-items:stretch !important;gap:6px}
+[class*="_footArea"]:has(.ow-settings-twin) [class*="_footerActions"]{order:2;flex:0 0 auto !important;width:auto !important;min-width:0}
+[class*="_footArea"]:has(.ow-settings-twin) [class*="_settingsArea"]{order:1;flex:1 1 auto !important;min-width:0 !important}
+[class*="_collapsed"] [class*="_footArea"]:has(.ow-settings-twin){flex-direction:column !important}
+.ow-route-card{margin-top:.85rem;padding:.85rem .9rem;border:1px solid var(--ow-line);border-radius:14px;background:#fafafa}
+.ow-route-card-head{display:flex;flex-direction:column;gap:.2rem;margin-bottom:.65rem}
+.ow-route-card-head strong{font-size:.86rem}
+.ow-route-card-head span{font-size:.74rem;color:var(--ow-muted);line-height:1.45}
+.ow-route-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(108px,.9fr);gap:.55rem}
+.ow-route-row label{margin:0;font-size:.74rem;font-weight:600;color:var(--ow-muted)}
+.ow-route-row select{margin-top:.28rem}
 @media (max-width:1080px){
   .ow-comment-pane{width:240px;flex-basis:240px}
   .ow-paper-body{padding:36px 36px 32px}

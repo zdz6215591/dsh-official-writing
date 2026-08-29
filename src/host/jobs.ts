@@ -18,7 +18,7 @@ import { normalizeDocType } from '../shared/docTypes.ts'
 import type { AuditIssue, CompleteRequest, JobSnapshot, RewriteMode } from '../shared/types.ts'
 import { parseRouteKey } from '../shared/types.ts'
 
-export const STREAM_TIMEOUT_MS = 12_000
+export const STREAM_TIMEOUT_MS = 18_000
 export const AUDIT_TIMEOUT_MS = 35_000
 
 export interface JobRecord extends JobSnapshot {
@@ -51,13 +51,16 @@ function withTimeout(signal: AbortSignal | undefined, ms: number): { signal: Abo
 
 function pickEffort(
   requested: string | undefined,
-  efforts: { id: string }[],
+  efforts: { id: string; name?: string }[],
 ): ReasoningEffortId | undefined {
   if (!efforts.length) return undefined
   if (requested && efforts.some((item) => item.id === requested)) {
     return requested as ReasoningEffortId
   }
-  return efforts[0]!.id as ReasoningEffortId
+  const lowest = efforts.find((item) =>
+    /low|min|none|off|disable|chat|fast|minimal/i.test(`${item.id} ${item.name || ''}`),
+  )
+  return (lowest?.id || efforts[0]!.id) as ReasoningEffortId
 }
 
 export async function resolveRoute(
@@ -167,9 +170,9 @@ export async function runJob(
   try {
     const effort =
       request.task === 'autocomplete'
-        ? undefined
+        ? pickEffort(undefined, route.efforts)
         : request.task === 'audit' && request.depth !== 'deep'
-          ? undefined
+          ? pickEffort(undefined, route.efforts)
           : pickEffort(request.effort, route.efforts)
 
     if (request.task === 'autocomplete') {
@@ -185,16 +188,18 @@ export async function runJob(
           provider: route.provider,
           model: route.model,
           system,
-          messages: [userMessage(`光标前上下文：\n${before.slice(-800)}`)],
-          temperature: 0.2,
-          maxTokens: 48,
+          messages: [userMessage(`光标前上下文：\n${before.slice(-1200)}`)],
+          temperature: 0.3,
+          maxTokens: 160,
+          ...(effort ? { reasoningEffort: effort } : {}),
           signal: clock.signal,
         },
         (delta) => {
           job.text += delta
         },
       )
-      job.text = cleanModelText(raw || job.text).slice(0, 80)
+      const cleaned = cleanModelText(raw || job.text)
+      job.text = (cleaned || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 80)
       return
     }
 

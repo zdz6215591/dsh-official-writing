@@ -8,6 +8,27 @@ function labelOf(model: ModelOption) {
   return `${model.providerName} / ${model.modelName}${model.local ? ' · 本地' : ''}`
 }
 
+const TASKS = [
+  {
+    key: 'autocomplete' as const,
+    effortKey: null,
+    title: '智能联想',
+    hint: '停笔后续写。思考固定最低档，以保证出字速度。',
+  },
+  {
+    key: 'audit' as const,
+    effortKey: 'auditEffort' as const,
+    title: '智能校核',
+    hint: '快速校验忽略思考；深度校验使用右侧等级。',
+  },
+  {
+    key: 'rewrite' as const,
+    effortKey: 'rewriteEffort' as const,
+    title: '选区改写',
+    hint: '改写时使用该模型与思考等级。',
+  },
+]
+
 export function ModelCenter({
   ctx,
   open,
@@ -64,15 +85,13 @@ export function ModelCenter({
     <div className="ow-modal-overlay" onClick={onClose}>
       <div className="ow-modal ow-model-center" onClick={(e) => e.stopPropagation()}>
         <header className="ow-modal-header">
-          <h2>设置 · 模型</h2>
+          <h2>模型</h2>
           <button type="button" className="ow-icon-btn" onClick={onClose} aria-label="关闭">
             ×
           </button>
         </header>
         <div className="ow-routing-panel">
-          <p className="ow-muted">
-            模型一律来自 dsh。联想 / 校核 / 改写可分别选用；思考等级默认为最低档。联想始终关闭深度思考。
-          </p>
+          <p className="ow-muted ow-sm">模型一律来自 dsh。每项任务在同一行选择模型与思考等级。</p>
           {encrypted && (
             <div className="ow-warn-banner">加密模式仅列出本地模型。若列表为空，请先在 dsh 中配置本地提供方。</div>
           )}
@@ -82,56 +101,70 @@ export function ModelCenter({
           )}
           {!busy && options.length > 0 && (
             <>
-              {(
-                [
-                  ['autocomplete', '智能联想（建议低延迟，强制关闭思考）'],
-                  ['audit', '智能校核'],
-                  ['rewrite', '选区改写'],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key}>
-                  {label}
-                  <select
-                    value={selectValue(key)}
-                    onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
-                  >
-                    {options.map((m) => (
-                      <option key={routeKey(m.provider, m.model)} value={routeKey(m.provider, m.model)}>
-                        {labelOf(m)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-              <label>
-                校核思考等级（快速档忽略此项；深度档使用）
-                <select
-                  value={draft.auditEffort}
-                  onChange={(e) => setDraft({ ...draft, auditEffort: e.target.value })}
-                >
-                  <option value="">最低（默认）</option>
-                  {effortsFor(selectValue('audit')).map((effort) => (
-                    <option key={effort.id} value={effort.id}>
-                      {effort.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                改写思考等级
-                <select
-                  value={draft.rewriteEffort}
-                  onChange={(e) => setDraft({ ...draft, rewriteEffort: e.target.value })}
-                >
-                  <option value="">最低（默认）</option>
-                  {effortsFor(selectValue('rewrite')).map((effort) => (
-                    <option key={effort.id} value={effort.id}>
-                      {effort.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {TASKS.map((task) => {
+                const route = selectValue(task.key)
+                const efforts = effortsFor(route)
+                const effortValue = task.effortKey ? draft[task.effortKey] : ''
+                return (
+                  <section key={task.key} className="ow-route-card">
+                    <div className="ow-route-card-head">
+                      <strong>{task.title}</strong>
+                      <span>{task.hint}</span>
+                    </div>
+                    <div className="ow-route-row">
+                      <label>
+                        模型
+                        <select
+                          value={route}
+                          onChange={(e) => {
+                            const next = e.target.value
+                            const nextEfforts = effortsFor(next)
+                            setDraft((prev) => ({
+                              ...prev,
+                              [task.key]: next,
+                              ...(task.effortKey &&
+                              prev[task.effortKey] &&
+                              !nextEfforts.some((item) => item.id === prev[task.effortKey])
+                                ? { [task.effortKey]: '' }
+                                : {}),
+                            }))
+                          }}
+                        >
+                          {options.map((m) => (
+                            <option key={routeKey(m.provider, m.model)} value={routeKey(m.provider, m.model)}>
+                              {labelOf(m)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        思考
+                        <select
+                          disabled={!task.effortKey || efforts.length === 0}
+                          value={task.effortKey ? effortValue : ''}
+                          onChange={(e) => {
+                            if (!task.effortKey) return
+                            setDraft({ ...draft, [task.effortKey]: e.target.value })
+                          }}
+                        >
+                          <option value="">{efforts[0]?.name || '最低'}</option>
+                          {task.effortKey
+                            ? efforts.map((effort) => (
+                                <option key={effort.id} value={effort.id}>
+                                  {effort.name}
+                                </option>
+                              ))
+                            : null}
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+                )
+              })}
               <div className="ow-row-actions">
+                <button type="button" className="ow-btn ghost" onClick={onClose}>
+                  取消
+                </button>
                 <button
                   type="button"
                   className="ow-btn primary"
@@ -145,7 +178,7 @@ export function ModelCenter({
                     onClose()
                   }}
                 >
-                  保存路由
+                  保存
                 </button>
               </div>
             </>

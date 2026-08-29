@@ -92,7 +92,7 @@ test('cleanModelText strips wrappers', () => {
 
 test('autocomplete prompt forbids extras', () => {
   const prompt = autocompleteSystem({ docType: 'notice', title: '通知' })
-  assert.match(prompt, /只输出续写/)
+  assert.match(prompt, /立刻输出续写/)
   assert.match(prompt, /通知/)
 })
 

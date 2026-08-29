@@ -115,10 +115,9 @@ export function useGhostAutocomplete(
           ac.signal,
         )
         if (seqRef.current !== seq) return
-        const shown = (finalText || acc).trim()
+        const shown = (finalText || acc).replace(/\s+/g, ' ').trim()
         if (!shown) {
           editor.commands.clearGhost()
-          onErrorRef.current?.('未生成建议')
           return
         }
         editor.commands.setGhost({ pos: safe, text: shown, loading: false })

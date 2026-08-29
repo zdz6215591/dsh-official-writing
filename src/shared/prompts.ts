@@ -41,9 +41,9 @@ export function autocompleteSystem(input: {
   const title = (input.title || '').trim()
   const intent = (input.intent || '').trim()
   return [
-    '你是专业公文写作秘书。根据光标前的上下文，只输出续写内容本身。',
+    '你是专业公文写作秘书。根据光标前的上下文，立刻输出续写正文，不要思考过程。',
     '禁止：标题、解释、重复上文、重复标点、Markdown、对话腔、引号包裹、编号列表。',
-    '长度约 10–50 字。自然衔接上文，符合机关公文用词。',
+    '长度 8–40 字。自然衔接上文，符合机关公文用词。',
     '若上文以不完整的句子结尾，必须先把该句补完整，再视情况续写。',
     `当前文体：${styleGuide(input.docType)}`,
     title ? `公文标题：${title}` : '',
