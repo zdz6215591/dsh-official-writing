@@ -3,7 +3,7 @@ import test from 'node:test'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
 import { applyIssueToText, locateInText, relocateIssues } from '../shared/locate.ts'
-import { isUnsupportedEffort, pickOffEffort, resolveEffort } from '../shared/effort.ts'
+import { isUnsupportedEffort, pickOffEffort, resolveEffort, streamAttempts } from '../shared/effort.ts'
 import { autocompleteSystem, cleanModelText, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
 
@@ -126,4 +126,15 @@ test('pickOffEffort prefers true off over low', () => {
     }),
     true,
   )
+  const deepseek = streamAttempts({
+    preferOff: true,
+    efforts: [
+      { id: 'off', name: 'Off' },
+      { id: 'high', name: 'High' },
+    ],
+  })
+  assert.equal(deepseek[0]?.reasoningEffort, 'off')
+  const noReasoning = streamAttempts({ preferOff: true, efforts: [] })
+  assert.ok(noReasoning.some((item) => item.purpose === 'session-title'))
+  assert.ok(noReasoning.some((item) => !item.reasoningEffort && !item.purpose))
 })

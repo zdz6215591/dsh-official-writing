@@ -5,7 +5,8 @@ import {
   type GenerateOptions,
   type ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
-import { isUnsupportedEffort, resolveEffort } from '../shared/effort.ts'
+import { isUnsupportedEffort, streamAttempts } from '../shared/effort.ts'
+import { logOw } from './log.ts'
 import { asRecord, asString, parseJsonObject } from '../shared/json.ts'
 import { locateInText, normalizeAuditType } from '../shared/locate.ts'
 import { isLocalRoute } from '../shared/local.ts'
@@ -19,12 +20,13 @@ import { normalizeDocType } from '../shared/docTypes.ts'
 import type { AuditIssue, CompleteRequest, JobSnapshot, RewriteMode } from '../shared/types.ts'
 import { parseRouteKey } from '../shared/types.ts'
 
-export const STREAM_TIMEOUT_MS = 8_000
-export const AUDIT_TIMEOUT_MS = 20_000
+export const STREAM_TIMEOUT_MS = 12_000
+export const AUDIT_TIMEOUT_MS = 25_000
 
 export interface JobRecord extends JobSnapshot {
   abort: AbortController
   task: CompleteRequest['task']
+  startedAt: number
 }
 
 export function finishError(
@@ -162,15 +164,41 @@ async function streamMaybeOffThinking(
   efforts: { id: string; name: string }[],
   requested?: string,
 ): Promise<string> {
-  const effort = asEffort(resolveEffort({ requested, efforts, preferOff: !requested }))
+  const attempts = streamAttempts({ requested, efforts, preferOff: !requested })
   const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta), next.signal)
-  try {
-    return await call(effort ? { ...options, reasoningEffort: effort } : options)
-  } catch (error) {
-    if (!isUnsupportedEffort(error)) throw error
-    const { reasoningEffort: _ignored, ...rest } = options
-    return await call(rest)
+  let lastError: unknown
+  for (const attempt of attempts) {
+    const next: GenerateOptions = { ...options }
+    if (attempt.reasoningEffort) next.reasoningEffort = asEffort(attempt.reasoningEffort)
+    else delete next.reasoningEffort
+    if (attempt.purpose) next.purpose = attempt.purpose
+    else delete next.purpose
+    try {
+      const text = await call(next)
+      logOw('stream.ok', {
+        provider: options.provider,
+        model: options.model,
+        effort: attempt.reasoningEffort || '',
+        purpose: attempt.purpose || '',
+        chars: text.length,
+      })
+      return text
+    } catch (error) {
+      lastError = error
+      logOw('stream.fail', {
+        provider: options.provider,
+        model: options.model,
+        effort: attempt.reasoningEffort || '',
+        purpose: attempt.purpose || '',
+        message: error instanceof Error ? error.message : String(error),
+        code: error && typeof error === 'object' && 'code' in error ? String((error as { code?: string }).code || '') : '',
+      })
+      if (!isUnsupportedEffort(error) && !(error instanceof Error && /UNSUPPORTED|does not support/i.test(error.message))) {
+        throw error
+      }
+    }
   }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError || '模型调用失败'))
 }
 
 function buildAuditIssues(raw: string, source: string): AuditIssue[] {

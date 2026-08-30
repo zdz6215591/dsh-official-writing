@@ -57,7 +57,11 @@ export async function waitWritingApi(timeoutMs = 8000): Promise<RemoteNs> {
 }
 
 function unwrap<T>(result: { ok: true; value: T } | { ok: false; error: { message: string } }): T {
-  if (!result.ok) throw new Error(result.error.message || '远程调用失败')
+  if (!result.ok) {
+    const message = result.error.message || '远程调用失败'
+    console.error('[dsh-official-writing] remote', message)
+    throw new Error(message)
+  }
   return result.value
 }
 

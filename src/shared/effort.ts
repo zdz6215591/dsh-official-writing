@@ -30,6 +30,30 @@ export function resolveEffort(opts: {
   return pickOffEffort(efforts) || efforts[0]?.id
 }
 
+export type StreamAttempt = { reasoningEffort?: string; purpose?: 'session-title' | 'compaction' }
+
+/** DeepSeek omits thinking ⇒ default high. Prefer advertised `off`, else session-title (forces thinking disabled). */
+export function streamAttempts(opts: {
+  requested?: string
+  efforts?: readonly { id: string; name?: string }[]
+  preferOff?: boolean
+}): StreamAttempt[] {
+  const advertised = resolveEffort(opts)
+  const attempts: StreamAttempt[] = []
+  const push = (attempt: StreamAttempt) => {
+    const key = `${attempt.reasoningEffort || ''}|${attempt.purpose || ''}`
+    if (attempts.some((item) => `${item.reasoningEffort || ''}|${item.purpose || ''}` === key)) return
+    attempts.push(attempt)
+  }
+  if (advertised) push({ reasoningEffort: advertised })
+  if (opts.preferOff) {
+    push({ purpose: 'session-title' })
+    if (advertised !== 'off') push({ reasoningEffort: 'off', purpose: 'session-title' })
+  }
+  push({})
+  return attempts
+}
+
 export function isUnsupportedEffort(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const row = error as { code?: string; message?: string; cause?: unknown }

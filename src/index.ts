@@ -1,6 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { runJob, type JobRecord } from './host/jobs.ts'
+import { logOw } from './host/log.ts'
 import { isLocalRoute } from './shared/local.ts'
 import type { CatalogSnapshot, CompleteRequest, JobSnapshot, ModelOption } from './shared/types.ts'
 
@@ -11,9 +12,18 @@ class OfficialWritingGateway extends TypertRemoteService {
 
   constructor(ctx: Context) {
     super(ctx, 'officialWriting')
-    ctx.effect(() => () => {
-      for (const job of this.jobs.values()) job.abort.abort()
-      this.jobs.clear()
+    ctx.effect(() => {
+      const timer = setInterval(() => {
+        const now = Date.now()
+        for (const [id, job] of this.jobs) {
+          if (job.done && now - job.startedAt > 120_000) this.jobs.delete(id)
+        }
+      }, 15_000)
+      return () => {
+        clearInterval(timer)
+        for (const job of this.jobs.values()) job.abort.abort()
+        this.jobs.clear()
+      }
     })
   }
 
@@ -80,8 +90,10 @@ class OfficialWritingGateway extends TypertRemoteService {
       done: false,
       abort,
       task: request.task,
+      startedAt: Date.now(),
     }
     this.jobs.set(jobId, job)
+    logOw('job.start', { jobId, task: request.task, route: request.route || '' })
     void this.execute(job, request)
     return snapshot(job)
   }
@@ -91,9 +103,7 @@ class OfficialWritingGateway extends TypertRemoteService {
     if (!job) {
       return { jobId, text: '', done: true, error: '任务不存在或已结束' }
     }
-    const view = snapshot(job)
-    if (job.done) this.jobs.delete(jobId)
-    return view
+    return snapshot(job)
   }
 
   cancelJob(jobId: string): JobSnapshot {
@@ -122,6 +132,7 @@ class OfficialWritingGateway extends TypertRemoteService {
       }
     } finally {
       job.done = true
+      logOw('job.done', { jobId: job.jobId, task: request.task, chars: job.text.length, error: job.error || '' })
     }
   }
 }
