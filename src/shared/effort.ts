@@ -45,11 +45,9 @@ export function streamAttempts(opts: {
     if (attempts.some((item) => `${item.reasoningEffort || ''}|${item.purpose || ''}` === key)) return
     attempts.push(attempt)
   }
-  if (advertised) push({ reasoningEffort: advertised })
   push({})
-  if (opts.preferOff && advertised !== 'off') {
-    push({ purpose: 'session-title' })
-  }
+  if (advertised) push({ reasoningEffort: advertised })
+  if (opts.preferOff) push({ purpose: 'session-title' })
   return attempts
 }
 

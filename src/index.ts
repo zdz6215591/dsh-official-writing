@@ -126,9 +126,11 @@ class OfficialWritingGateway extends TypertRemoteService {
         job.error = request.task === 'audit' ? '校核超时' : '联想超时'
       } else {
         const message = error instanceof Error ? error.message : String(error)
-        job.error = /UNSUPPORTED_REASONING_EFFORT|does not support reasoning effort/i.test(message)
-          ? '该模型不支持当前思考档，已按无思考重试仍失败。请换一个 dsh 里能正常对话的模型。'
-          : message
+        job.error = /EMPTY_RESPONSE/i.test(message)
+          ? '模型没有返回正文。请换一个在 dsh 对话里能正常出字的模型后再试。'
+          : /UNSUPPORTED_REASONING_EFFORT|does not support reasoning effort/i.test(message)
+            ? '该模型不支持当前思考档，已按无思考重试仍失败。请换一个 dsh 里能正常对话的模型。'
+            : message
       }
     } finally {
       job.done = true

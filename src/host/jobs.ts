@@ -141,20 +141,27 @@ async function streamText(
   ctx: Context,
   options: GenerateOptions,
   onDelta: (text: string) => void,
-): Promise<string> {
+): Promise<{ text: string; reasoning: string; kinds: string[] }> {
   const assembler = new BlockAssembler()
+  const kinds: string[] = []
   for await (const chunk of ctx.llm.stream(options)) {
     if (options.signal?.aborted) throw new Error('TIMEOUT')
     assembler.push(chunk)
+    kinds.push(chunk.type)
     if (chunk.type === 'text-delta' && chunk.text) onDelta(chunk.text)
   }
   const error = finishError(assembler.finish)
   if (error) throw error
-  return assembler
-    .blocks()
+  const blocks = assembler.blocks()
+  const text = blocks
     .filter((block) => block.type === 'text')
     .map((block) => block.text)
     .join('')
+  const reasoning = blocks
+    .filter((block) => block.type === 'reasoning')
+    .map((block) => ('text' in block ? String(block.text) : ''))
+    .join('')
+  return { text, reasoning, kinds: [...new Set(kinds)] }
 }
 
 async function streamMaybeOffThinking(
@@ -174,15 +181,22 @@ async function streamMaybeOffThinking(
     if (attempt.purpose) next.purpose = attempt.purpose
     else delete next.purpose
     try {
-      const text = await call(next)
+      const result = await call(next)
+      const visible = result.text.trim() ? result.text : result.reasoning
       logOw('stream.ok', {
         provider: options.provider,
         model: options.model,
         effort: attempt.reasoningEffort || '',
         purpose: attempt.purpose || '',
-        chars: text.length,
+        chars: result.text.length,
+        reasoningChars: result.reasoning.length,
+        kinds: result.kinds.join(','),
       })
-      return text
+      if (visible.trim()) {
+        if (!result.text.trim() && result.reasoning.trim()) onDelta(result.reasoning)
+        return visible
+      }
+      lastError = new Error('EMPTY_RESPONSE')
     } catch (error) {
       lastError = error
       logOw('stream.fail', {
@@ -193,9 +207,10 @@ async function streamMaybeOffThinking(
         message: error instanceof Error ? error.message : String(error),
         code: error && typeof error === 'object' && 'code' in error ? String((error as { code?: string }).code || '') : '',
       })
-      if (!isUnsupportedEffort(error) && !(error instanceof Error && /UNSUPPORTED|does not support/i.test(error.message))) {
-        throw error
-      }
+      const retryable =
+        isUnsupportedEffort(error) ||
+        (error instanceof Error && /UNSUPPORTED|does not support|EMPTY_RESPONSE/i.test(error.message))
+      if (!retryable) throw error
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError || '模型调用失败'))
@@ -266,7 +281,7 @@ export async function runJob(
           system,
           messages: [userMessage(`光标前上下文：\n${before.slice(-800)}`)],
           temperature: 0.2,
-          maxTokens: 64,
+          maxTokens: 256,
           signal: clock.signal,
         },
         (delta) => {
