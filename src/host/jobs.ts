@@ -141,14 +141,23 @@ async function streamText(
   ctx: Context,
   options: GenerateOptions,
   onDelta: (text: string) => void,
+  maxWaitForTextMs = 0,
 ): Promise<{ text: string; reasoning: string; kinds: string[] }> {
   const assembler = new BlockAssembler()
   const kinds: string[] = []
+  const started = Date.now()
+  let sawText = false
   for await (const chunk of ctx.llm.stream(options)) {
     if (options.signal?.aborted) throw new Error('TIMEOUT')
     assembler.push(chunk)
     kinds.push(chunk.type)
-    if (chunk.type === 'text-delta' && chunk.text) onDelta(chunk.text)
+    if (chunk.type === 'text-delta' && chunk.text) {
+      sawText = true
+      onDelta(chunk.text)
+    }
+    if (maxWaitForTextMs && !sawText && Date.now() - started > maxWaitForTextMs) {
+      throw new Error('EMPTY_RESPONSE')
+    }
   }
   const error = finishError(assembler.finish)
   if (error) throw error
@@ -175,7 +184,8 @@ async function streamMaybeOffThinking(
 ): Promise<string> {
   const attempts = streamAttempts({ requested, efforts, preferOff: !requested && !once })
   const planned = once ? attempts.slice(0, 1) : attempts
-  const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta), next.signal)
+  const waitText = once ? 6_000 : 0
+  const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta, waitText), next.signal)
   let lastError: unknown
   let lastReasoning = ''
   for (const attempt of planned) {

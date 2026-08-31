@@ -33,6 +33,19 @@ test('locate uses context, not stale offsets', () => {
   assert.equal(text.slice(range.start, range.end), '贯彻执行')
 })
 
+test('locate never expands to the whole context span', () => {
+  const text = '请认真贯彻执行并抓好落实。'
+  const range = locateInText(text, {
+    type: 'polish',
+    original: '贯彻执行',
+    context: '请认真贯彻执行并抓好落实。',
+    start: 0,
+  })
+  assert.ok(range)
+  assert.equal(text.slice(range.start, range.end), '贯彻执行')
+  assert.notEqual(text.slice(range.start, range.end), '请认真贯彻执行并抓好落实。')
+})
+
 test('locate prefers the occurrence nearest the previous offset', () => {
   const text = '请认真贯彻执行。随后请认真贯彻执行。'
   const first = '请认真贯彻执行。'

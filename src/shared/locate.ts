@@ -31,27 +31,20 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
     return null
   }
 
+  if (!original) return null
   if (context) {
     const ctxIdx = indexOfPreferred(text, context, issue.start)
     if (ctxIdx >= 0) {
-      if (original) {
-        const rel = context.indexOf(original)
-        if (rel >= 0) {
-          return { start: ctxIdx + rel, end: ctxIdx + rel + original.length }
-        }
-        const inner = text.indexOf(original, ctxIdx)
-        if (inner >= 0 && inner <= ctxIdx + context.length) {
-          return { start: inner, end: inner + original.length }
-        }
+      const rel = context.indexOf(original)
+      if (rel >= 0) return { start: ctxIdx + rel, end: ctxIdx + rel + original.length }
+      const inner = text.indexOf(original, ctxIdx)
+      if (inner >= 0 && inner <= ctxIdx + context.length) {
+        return { start: inner, end: inner + original.length }
       }
-      return { start: ctxIdx, end: ctxIdx + context.length }
     }
   }
-
-  if (original) {
-    const idx = indexOfPreferred(text, original, issue.start)
-    if (idx >= 0) return { start: idx, end: idx + original.length }
-  }
+  const idx = indexOfPreferred(text, original, issue.start ?? (context ? text.indexOf(context) : undefined))
+  if (idx >= 0) return { start: idx, end: idx + original.length }
 
   return null
 }

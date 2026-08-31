@@ -12,8 +12,8 @@ import { AuditMarks, auditPluginKey } from './extensions/AuditMarks.ts'
 import { countDocChars, getDocPlainText } from './extensions/docText.ts'
 import { GhostText } from './extensions/GhostText.ts'
 import { RewriteMark } from './extensions/RewriteMark.ts'
-import { AnnotationSidebar, focusIssueInDoc } from './components/AnnotationSidebar.tsx'
-import { CommentConnectors } from './components/CommentConnectors.tsx'
+import { AnnotationPops } from './components/AnnotationPops.tsx'
+import { focusIssueInDoc } from './components/AnnotationSidebar.tsx'
 import { BubbleMenuBar } from './components/BubbleMenuBar.tsx'
 import { FloatTools } from './components/FloatTools.tsx'
 import { ModelCenter } from './components/ModelCenter.tsx'
@@ -81,6 +81,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
   const [confirmReset, setConfirmReset] = useState(false)
 
   const docScrollRef = useRef<HTMLDivElement>(null)
+  const paperRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const toastId = useRef(0)
   const persistTimer = useRef(0)
@@ -376,9 +377,8 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
       )}
       <main className="ow-workspace">
         <div className="ow-stage" ref={stageRef}>
-          <CommentConnectors editor={editor} issues={issues} activeId={activeId} stageRef={stageRef} />
           <div className="ow-doc-scroll" ref={docScrollRef}>
-            <div className="ow-paper">
+            <div className="ow-paper" ref={paperRef}>
               <div className="ow-paper-topbar">
                 <div className="ow-meta-left">
                   <span className="ow-paper-badge">{docTypeLabel}</span>
@@ -394,6 +394,29 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
               <div className="ow-paper-body">
                 <EditorContent editor={editor} />
               </div>
+              <AnnotationPops
+                editor={editor}
+                issues={issues}
+                activeId={activeId}
+                paperRef={paperRef}
+                onHover={(id) => {
+                  setActiveId(id)
+                  editor?.commands.setActiveIssue(id)
+                }}
+                onAccept={acceptIssue}
+                onDismiss={(id) => {
+                  const rest = issues.filter((i) => i.id !== id)
+                  setIssues(rest)
+                  editor?.commands.setAuditIssues(rest)
+                }}
+                onFocusIssue={(id) => {
+                  const issue = issues.find((i) => i.id === id)
+                  if (!issue || !editor) return
+                  setActiveId(id)
+                  editor.commands.setActiveIssue(id)
+                  focusIssueInDoc(editor, issue, docScrollRef)
+                }}
+              />
               <RewritePanel
                 ctx={ctx}
                 editor={editor}
@@ -411,33 +434,6 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
               />
             </div>
           </div>
-          <AnnotationSidebar
-            editor={editor}
-            issues={issues}
-            activeId={activeId}
-            auditing={auditing}
-            onHover={(id) => {
-              setActiveId(id)
-              editor?.commands.setActiveIssue(id)
-            }}
-            onAccept={acceptIssue}
-            onDismiss={(id) => {
-              const rest = issues.filter((i) => i.id !== id)
-              setIssues(rest)
-              editor?.commands.setAuditIssues(rest)
-            }}
-            onDismissAll={() => {
-              setIssues([])
-              editor?.commands.clearAuditIssues()
-            }}
-            onFocusIssue={(id) => {
-              const issue = issues.find((i) => i.id === id)
-              if (!issue || !editor) return
-              setActiveId(id)
-              editor.commands.setActiveIssue(id)
-              focusIssueInDoc(editor, issue, docScrollRef)
-            }}
-          />
           <BubbleMenuBar
             editor={editor}
             hidden={rewrite.open}

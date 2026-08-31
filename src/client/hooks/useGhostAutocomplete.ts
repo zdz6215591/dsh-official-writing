@@ -133,11 +133,7 @@ export function useGhostAutocomplete(
 
     const schedule = (force = false) => {
       if (!shouldTrigger(editor) || !enoughContext(editor)) {
-        if (force || !abortRef.current) {
-          clearTimer()
-          abortRef.current?.abort()
-          editor.commands.clearGhost()
-        }
+        cancel()
         return
       }
       const pos = editor.state.selection.from
