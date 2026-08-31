@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
-import { applyIssueToText, coerceAuditType, locateInText, relocateIssues } from '../shared/locate.ts'
+import { applyIssueToText, coerceAuditType, locateInText, relocateIssues, tightenIssueSpan } from '../shared/locate.ts'
 import { isUnsupportedEffort, pickOffEffort, resolveEffort, streamAttempts } from '../shared/effort.ts'
 import { autocompleteSystem, cleanModelText, extractGhostFromReasoning, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
@@ -31,6 +31,16 @@ test('locate uses context, not stale offsets', () => {
   })
   assert.ok(range)
   assert.equal(text.slice(range.start, range.end), '贯彻执行')
+})
+
+test('tightenIssueSpan keeps only the changed fragment', () => {
+  const tight = tightenIssueSpan({
+    type: 'polish',
+    original: '上午9点于综合楼二楼5234会议室',
+    suggestion: '上午9:00在综合楼二楼5234会议室',
+  })
+  assert.equal(tight.original, '点于')
+  assert.equal(tight.suggestion, ':00在')
 })
 
 test('locate never expands to the whole context span', () => {

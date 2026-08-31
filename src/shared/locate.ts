@@ -18,14 +18,43 @@ export interface IssueLike {
  * 在当前正文里实时查找批注位置。
  * 以 context / original 的原文片段为准，start/end 只作参考。
  */
-export function locateInText(text: string, issue: IssueLike): TextRange | null {
-  const type = issue.type
-  const context = issue.context ?? ''
+function firstDiffSpan(from: string, to: string): { start: number; end: number; insert: string } | null {
+  if (!from || from === to) return null
+  let start = 0
+  const maxStart = Math.min(from.length, to.length)
+  while (start < maxStart && from[start] === to[start]) start += 1
+  let fromEnd = from.length
+  let toEnd = to.length
+  while (fromEnd > start && toEnd > start && from[fromEnd - 1] === to[toEnd - 1]) {
+    fromEnd -= 1
+    toEnd -= 1
+  }
+  return { start, end: fromEnd, insert: to.slice(start, toEnd) }
+}
+
+export function tightenIssueSpan(issue: IssueLike): IssueLike {
+  if (issue.type === 'insert') return issue
   const original = issue.original ?? ''
+  const suggestion = issue.suggestion ?? ''
+  const span = firstDiffSpan(original, suggestion)
+  if (!span || span.end - span.start <= 0) return issue
+  if (span.end - span.start >= original.length) return issue
+  return {
+    ...issue,
+    original: original.slice(span.start, span.end),
+    suggestion: span.insert,
+  }
+}
+
+export function locateInText(text: string, issue: IssueLike): TextRange | null {
+  const tightened = tightenIssueSpan(issue)
+  const type = tightened.type
+  const context = tightened.context ?? ''
+  const original = tightened.original ?? ''
 
   if (type === 'insert') {
     if (context) {
-      const idx = indexOfContext(text, context, issue.start)
+      const idx = indexOfContext(text, context, tightened.start)
       if (idx >= 0) return { start: idx, end: idx + context.length }
     }
     return null
@@ -33,7 +62,7 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
 
   if (!original) return null
   if (context) {
-    const ctxIdx = indexOfContext(text, context, issue.start)
+    const ctxIdx = indexOfContext(text, context, tightened.start)
     if (ctxIdx >= 0) {
       const rel = context.indexOf(original)
       if (rel >= 0) return { start: ctxIdx + rel, end: ctxIdx + rel + original.length }
@@ -43,7 +72,7 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
       }
     }
   }
-  const idx = indexOfOriginal(text, original, issue.start)
+  const idx = indexOfOriginal(text, original, tightened.start)
   if (idx >= 0) return { start: idx, end: idx + original.length }
 
   return null

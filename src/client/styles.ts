@@ -45,9 +45,9 @@ export const STYLES = `
 .ow-root .ProseMirror p{margin:0 0 1.05em;text-indent:2em;text-align:justify}
 .ow-root .ProseMirror h1{text-indent:0;text-align:center;font-family:var(--ow-font-title);font-size:28px;font-weight:400;line-height:1.55;letter-spacing:.12em;margin:.2em 0 1.6em}
 .ow-root .ProseMirror h2,.ow-root .ProseMirror h3{text-indent:0;font-weight:600;margin:1.1em 0 .55em}
-.ow-root .ProseMirror p.is-editor-empty:first-child::before,.ow-root .ProseMirror .is-empty::before{content:attr(data-placeholder);color:var(--ow-faint);pointer-events:none;height:0;font-family:var(--ow-font-ui);font-size:.9rem;text-indent:0}
-.ow-root .ProseMirror p.is-empty::before{margin-left:2em}
-.ow-root .ProseMirror .is-empty[data-ghost]::before,.ow-root .ProseMirror p:has([data-ghost])::before{content:none !important}
+.ow-root .ProseMirror p.is-editor-empty:first-child::before,.ow-root .ProseMirror .is-empty::before{content:none}
+.ow-root .ProseMirror p.is-empty::after{content:attr(data-placeholder);color:var(--ow-faint);pointer-events:none;font-family:var(--ow-font-ui);font-size:.9rem}
+.ow-root .ProseMirror p:has([data-ghost])::after{content:none}
 .ow-ghost-text{color:rgba(0,0,0,.28);pointer-events:none;user-select:none}
 .ow-ghost-loading{display:inline-flex;gap:3px;align-items:center;margin-left:1px;pointer-events:none;height:1em}
 .ow-ghost-loading .dot{width:3px;height:3px;border-radius:50%;background:rgba(0,0,0,.35);animation:ow-pulse 1.2s ease-in-out infinite}

@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { DOC_TYPE_LABEL, normalizeDocType } from '../shared/docTypes.ts'
 import { asRecord, parseJsonObject } from '../shared/json.ts'
-import { coerceAuditType, locateInText, relocateIssues } from '../shared/locate.ts'
+import { coerceAuditType, locateInText, relocateIssues, tightenIssueSpan } from '../shared/locate.ts'
 import type { AuditIssue, DocumentContext, RewriteMode } from '../shared/types.ts'
 import { isEncrypted } from '../shared/types.ts'
 import { AuditMarks, auditPluginKey } from './extensions/AuditMarks.ts'
@@ -44,12 +44,14 @@ function parseIssues(raw: string, text: string): AuditIssue[] {
       const row = asRecord(item) || {}
       return {
         id: typeof row.id === 'string' ? row.id : `audit-${i}`,
-        type: coerceAuditType(
-          row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
-          typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
-        ),
-        original: typeof row.original === 'string' ? row.original : '',
-        suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
+        ...tightenIssueSpan({
+          type: coerceAuditType(
+            row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
+            typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
+          ),
+          original: typeof row.original === 'string' ? row.original : '',
+          suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
+        }),
         reason: typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
         context: typeof row.context === 'string' ? row.context : '',
         start: -1,

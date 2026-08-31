@@ -63,6 +63,7 @@ export function auditSystem(input: { docType?: string }): string {
     '把 JSON 写在可见正文里，不要只在思考过程中写。不要输出思考过程。',
     '输出严格 JSON，不要任何多余说明，不要包在 Markdown 代码块里。形状：',
     '{"suggestions":[{"type":"typo|polish|insert","original":"原文中存在的问题文本（insert 时为空串）","suggestion":"建议改成什么 / 要插入什么","context":"原文中原封不动存在的连续片段，用于定位","explanation":"为什么改","start":0,"end":0}]}',
+    'original 必须是真正要改的最短片段，例如只改「上午9点」不要整句。suggestion 只对应这段。',
     'context 取材规则（最关键）：',
     '- typo / polish：取 10–25 字连续原文，必须包含 original。',
     '- insert：取插入点前方紧邻的 8–15 字连续原文。',

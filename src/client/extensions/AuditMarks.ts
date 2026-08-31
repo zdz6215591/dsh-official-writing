@@ -158,13 +158,19 @@ export const AuditMarks = Extension.create({
               }
             }
             if (tr.docChanged) {
+              const mapped = tr.mapping
+              const { text } = getDocPlainText(tr.doc)
               next = {
                 ...next,
+                issues: next.issues.flatMap((issue) => {
+                  const range = locateInText(text, issue)
+                  return range ? [{ ...issue, start: range.start, end: range.end }] : []
+                }),
                 applied: next.applied
                   .map((item) => ({
                     id: item.id,
-                    from: tr.mapping.map(item.from),
-                    to: tr.mapping.map(item.to),
+                    from: mapped.map(item.from),
+                    to: mapped.map(item.to),
                   }))
                   .filter((item) => item.from < item.to),
               }
