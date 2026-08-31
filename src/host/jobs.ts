@@ -285,8 +285,8 @@ function buildAuditIssues(raw: string, source: string): AuditIssue[] {
       suggestion,
       reason: explanation,
       context,
-      start: typeof row.start === 'number' ? row.start : 0,
-      end: typeof row.end === 'number' ? row.end : 0,
+      start: -1,
+      end: -1,
     }
     const located = locateInText(source, draft)
     if (!located) continue

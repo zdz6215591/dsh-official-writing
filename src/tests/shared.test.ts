@@ -46,17 +46,28 @@ test('locate never expands to the whole context span', () => {
   assert.notEqual(text.slice(range.start, range.end), '请认真贯彻执行并抓好落实。')
 })
 
-test('locate prefers the occurrence nearest the previous offset', () => {
+test('locate ignores bogus model offsets and uses the first original', () => {
   const text = '请认真贯彻执行。随后请认真贯彻执行。'
-  const first = '请认真贯彻执行。'
   const range = locateInText(text, {
     type: 'typo',
     original: '贯彻执行',
-    context: first,
-    start: text.lastIndexOf(first) + '请认真'.length,
+    context: '请认真贯彻执行。',
+    start: 999,
   })
   assert.ok(range)
-  assert.equal(range.start, text.lastIndexOf('贯彻执行'))
+  assert.equal(range.start, text.indexOf('贯彻执行'))
+})
+
+test('locate prefers the occurrence nearest a real previous offset', () => {
+  const text = '请认真贯彻执行。随后请认真贯彻执行。'
+  const second = text.lastIndexOf('贯彻执行')
+  const range = locateInText(text, {
+    type: 'typo',
+    original: '贯彻执行',
+    start: second,
+  })
+  assert.ok(range)
+  assert.equal(range.start, second)
 })
 
 test('insert locates by preceding context', () => {

@@ -25,7 +25,7 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
 
   if (type === 'insert') {
     if (context) {
-      const idx = indexOfPreferred(text, context, issue.start)
+      const idx = indexOfContext(text, context, issue.start)
       if (idx >= 0) return { start: idx, end: idx + context.length }
     }
     return null
@@ -33,7 +33,7 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
 
   if (!original) return null
   if (context) {
-    const ctxIdx = indexOfPreferred(text, context, issue.start)
+    const ctxIdx = indexOfContext(text, context, issue.start)
     if (ctxIdx >= 0) {
       const rel = context.indexOf(original)
       if (rel >= 0) return { start: ctxIdx + rel, end: ctxIdx + rel + original.length }
@@ -43,18 +43,23 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
       }
     }
   }
-  const idx = indexOfPreferred(text, original, issue.start ?? (context ? text.indexOf(context) : undefined))
+  const idx = indexOfOriginal(text, original, issue.start)
   if (idx >= 0) return { start: idx, end: idx + original.length }
 
   return null
 }
 
-function indexOfPreferred(text: string, needle: string, hint?: number): number {
+function indexOfContext(text: string, needle: string, _hint?: number): number {
   if (!needle) return -1
+  return text.indexOf(needle)
+}
+
+function indexOfOriginal(text: string, needle: string, hint?: number): number {
+  if (!needle) return -1
+  if (typeof hint !== 'number' || hint < 0) return text.indexOf(needle)
+  if (text.slice(hint, hint + needle.length) === needle) return hint
   let idx = text.indexOf(needle)
   if (idx < 0) return -1
-  if (typeof hint !== 'number' || hint < 0) return idx
-  if (text.slice(hint, hint + needle.length) === needle) return hint
   let best = idx
   let bestDist = Math.abs(idx - hint)
   while (idx >= 0) {

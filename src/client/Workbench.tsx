@@ -49,8 +49,8 @@ function parseIssues(raw: string, text: string): AuditIssue[] {
         suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
         reason: typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
         context: typeof row.context === 'string' ? row.context : '',
-        start: typeof row.start === 'number' ? row.start : 0,
-        end: typeof row.end === 'number' ? row.end : 0,
+        start: -1,
+        end: -1,
       }
     }),
   )
@@ -376,34 +376,6 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
       )}
       <main className="ow-workspace">
         <div className="ow-stage" ref={stageRef}>
-          <AnnotationSidebar
-            editor={editor}
-            issues={issues}
-            activeId={activeId}
-            auditing={auditing}
-            paperRef={paperRef}
-            onHover={(id) => {
-              setActiveId(id)
-              editor?.commands.setActiveIssue(id)
-            }}
-            onAccept={acceptIssue}
-            onDismiss={(id) => {
-              const rest = issues.filter((i) => i.id !== id)
-              setIssues(rest)
-              editor?.commands.setAuditIssues(rest)
-            }}
-            onDismissAll={() => {
-              setIssues([])
-              editor?.commands.clearAuditIssues()
-            }}
-            onFocusIssue={(id) => {
-              const issue = issues.find((i) => i.id === id)
-              if (!issue || !editor) return
-              setActiveId(id)
-              editor.commands.setActiveIssue(id)
-              focusIssueInDoc(editor, issue, docScrollRef)
-            }}
-          />
           <div className="ow-doc-scroll" ref={docScrollRef}>
             <div className="ow-paper" ref={paperRef}>
               <div className="ow-paper-topbar">
@@ -438,6 +410,34 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
               />
             </div>
           </div>
+          <AnnotationSidebar
+            editor={editor}
+            issues={issues}
+            activeId={activeId}
+            auditing={auditing}
+            paperRef={paperRef}
+            onHover={(id) => {
+              setActiveId(id)
+              editor?.commands.setActiveIssue(id)
+            }}
+            onAccept={acceptIssue}
+            onDismiss={(id) => {
+              const rest = issues.filter((i) => i.id !== id)
+              setIssues(rest)
+              editor?.commands.setAuditIssues(rest)
+            }}
+            onDismissAll={() => {
+              setIssues([])
+              editor?.commands.clearAuditIssues()
+            }}
+            onFocusIssue={(id) => {
+              const issue = issues.find((i) => i.id === id)
+              if (!issue || !editor) return
+              setActiveId(id)
+              editor.commands.setActiveIssue(id)
+              focusIssueInDoc(editor, issue, docScrollRef)
+            }}
+          />
           <BubbleMenuBar
             editor={editor}
             hidden={rewrite.open}

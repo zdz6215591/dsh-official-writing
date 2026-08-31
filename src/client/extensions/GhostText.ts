@@ -72,7 +72,10 @@ export const GhostText = Extension.create({
               widget.textContent = text
             }
             return DecorationSet.create(state.doc, [
-              Decoration.widget(pos, widget, { side: 1, key: 'ow-ghost' }),
+              Decoration.widget(pos, widget, {
+                side: 1,
+                key: loading ? 'ow-ghost-loading' : `ow-ghost-text:${text}`,
+              }),
             ])
           },
           handleKeyDown(view, event) {
