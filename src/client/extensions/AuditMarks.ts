@@ -2,7 +2,7 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { AuditIssue } from '../../shared/types.ts'
-import { locateInText } from '../../shared/locate.ts'
+import { locateInText, tightenIssueSpan, visualMarkRange } from '../../shared/locate.ts'
 import { getDocPlainText, offsetsToRange } from './docText.ts'
 
 export type AppliedHighlight = { id: string; from: number; to: number }
@@ -31,7 +31,7 @@ function buildDecorations(doc: any, state: AuditPluginState): DecorationSet {
   const decos: ReturnType<typeof Decoration.inline>[] = []
   const { text, map } = getDocPlainText(doc)
   for (const issue of state.issues) {
-    const loc = locateInText(text, issue)
+    const loc = visualMarkRange(text, issue)
     if (!loc) continue
     const range = offsetsToRange(map, loc.start, loc.end, doc.content.size)
     if (!range) continue
@@ -86,25 +86,27 @@ export const AuditMarks = Extension.create({
         (issue: AuditIssue) =>
         ({ state, tr, dispatch }) => {
           const { text, map } = getDocPlainText(state.doc)
-          const loc = locateInText(text, issue)
+          const loc = visualMarkRange(text, issue)
           if (!loc) return false
           const range = offsetsToRange(map, loc.start, loc.end, state.doc.content.size)
           if (!range) return false
+          const replacement =
+            issue.type === 'insert' ? issue.suggestion : String(tightenIssueSpan(issue).suggestion ?? issue.suggestion)
           if (issue.type === 'insert') {
-            tr.insertText(issue.suggestion, range.to)
+            tr.insertText(replacement, range.to)
             tr.setMeta(auditPluginKey, {
               type: 'applied',
               issueId: issue.id,
               from: range.to,
-              to: range.to + issue.suggestion.length,
+              to: range.to + replacement.length,
             })
           } else {
-            tr.insertText(issue.suggestion, range.from, range.to)
+            tr.insertText(replacement, range.from, range.to)
             tr.setMeta(auditPluginKey, {
               type: 'applied',
               issueId: issue.id,
               from: range.from,
-              to: range.from + issue.suggestion.length,
+              to: range.from + replacement.length,
             })
           }
           if (dispatch) dispatch(tr)

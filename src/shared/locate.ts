@@ -14,10 +14,6 @@ export interface IssueLike {
   end?: number
 }
 
-/**
- * 在当前正文里实时查找批注位置。
- * 以 context / original 的原文片段为准，start/end 只作参考。
- */
 function firstDiffSpan(from: string, to: string): { start: number; end: number; insert: string } | null {
   if (!from || from === to) return null
   let start = 0
@@ -32,6 +28,7 @@ function firstDiffSpan(from: string, to: string): { start: number; end: number; 
   return { start, end: fromEnd, insert: to.slice(start, toEnd) }
 }
 
+/** Display-only: keep the changed fragment. Never use this result to search the document. */
 export function tightenIssueSpan(issue: IssueLike): IssueLike {
   if (issue.type === 'insert') return issue
   const original = issue.original ?? ''
@@ -46,15 +43,18 @@ export function tightenIssueSpan(issue: IssueLike): IssueLike {
   }
 }
 
+/**
+ * 在当前正文里实时查找批注位置。
+ * 用完整 original / context 锁定句子，不用最短差去全文搜索。
+ */
 export function locateInText(text: string, issue: IssueLike): TextRange | null {
-  const tightened = tightenIssueSpan(issue)
-  const type = tightened.type
-  const context = tightened.context ?? ''
-  const original = tightened.original ?? ''
+  const type = issue.type
+  const context = issue.context ?? ''
+  const original = issue.original ?? ''
 
   if (type === 'insert') {
     if (context) {
-      const idx = indexOfContext(text, context, tightened.start)
+      const idx = indexOfNeedle(text, context, issue.start)
       if (idx >= 0) return { start: idx, end: idx + context.length }
     }
     return null
@@ -62,7 +62,7 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
 
   if (!original) return null
   if (context) {
-    const ctxIdx = indexOfContext(text, context, tightened.start)
+    const ctxIdx = indexOfNeedle(text, context, issue.start)
     if (ctxIdx >= 0) {
       const rel = context.indexOf(original)
       if (rel >= 0) return { start: ctxIdx + rel, end: ctxIdx + rel + original.length }
@@ -72,34 +72,31 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
       }
     }
   }
-  const idx = indexOfOriginal(text, original, tightened.start)
+  if (original.length < 4) return null
+  const idx = indexOfNeedle(text, original, issue.start)
   if (idx >= 0) return { start: idx, end: idx + original.length }
-
   return null
 }
 
-function indexOfContext(text: string, needle: string, _hint?: number): number {
-  if (!needle) return -1
-  return text.indexOf(needle)
+/** Underline only the changed fragment, still inside the located original. */
+export function visualMarkRange(text: string, issue: IssueLike): TextRange | null {
+  const loc = locateInText(text, issue)
+  if (!loc) return null
+  if (issue.type === 'insert') return loc
+  const original = issue.original ?? ''
+  const suggestion = issue.suggestion ?? ''
+  const span = firstDiffSpan(original, suggestion)
+  if (!span || span.end <= span.start) return loc
+  if (span.end - span.start >= original.length) return loc
+  return { start: loc.start + span.start, end: loc.start + span.end }
 }
 
-function indexOfOriginal(text: string, needle: string, hint?: number): number {
+function indexOfNeedle(text: string, needle: string, hint?: number): number {
   if (!needle) return -1
-  if (typeof hint !== 'number' || hint < 0) return text.indexOf(needle)
-  if (text.slice(hint, hint + needle.length) === needle) return hint
-  let idx = text.indexOf(needle)
-  if (idx < 0) return -1
-  let best = idx
-  let bestDist = Math.abs(idx - hint)
-  while (idx >= 0) {
-    const dist = Math.abs(idx - hint)
-    if (dist < bestDist) {
-      best = idx
-      bestDist = dist
-    }
-    idx = text.indexOf(needle, idx + 1)
+  if (typeof hint === 'number' && hint >= 0 && text.slice(hint, hint + needle.length) === needle) {
+    return hint
   }
-  return best
+  return text.indexOf(needle)
 }
 
 export function locateIssue(text: string, issue: AuditIssue): TextRange | null {
@@ -120,9 +117,10 @@ export function relocateIssues(text: string, issues: AuditIssue[]): AuditIssue[]
 }
 
 export function applyIssueToText(text: string, issue: IssueLike): { text: string; from: number; to: number } | null {
-  const range = locateInText(text, issue)
+  const range = visualMarkRange(text, issue)
   if (!range) return null
-  const suggestion = issue.suggestion ?? ''
+  const tight = tightenIssueSpan(issue)
+  const suggestion = issue.type === 'insert' ? (issue.suggestion ?? '') : (tight.suggestion ?? issue.suggestion ?? '')
   if (issue.type === 'insert') {
     const from = range.end
     return {

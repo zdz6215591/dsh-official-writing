@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { AuditIssue } from '../../shared/types.ts'
-import { locateInText } from '../../shared/locate.ts'
+import { locateInText, tightenIssueSpan } from '../../shared/locate.ts'
 import { getDocPlainText, offsetsToRange } from '../extensions/docText.ts'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -104,9 +104,16 @@ export function AnnotationSidebar({
                 {TYPE_LABEL[issue.type] || issue.type}
               </div>
               <p className="ow-anno-change">
-                <span className="ow-anno-orig">{issue.original || '（插入）'}</span>
-                <span className="ow-anno-arrow"> → </span>
-                <span className="ow-anno-sug">{issue.suggestion}</span>
+                {(() => {
+                  const tight = tightenIssueSpan(issue)
+                  return (
+                    <>
+                      <span className="ow-anno-orig">{tight.original || issue.original || '（插入）'}</span>
+                      <span className="ow-anno-arrow"> → </span>
+                      <span className="ow-anno-sug">{tight.suggestion ?? issue.suggestion}</span>
+                    </>
+                  )
+                })()}
               </p>
               {issue.reason ? <p className="ow-anno-reason">{issue.reason}</p> : null}
               <div className="ow-anno-actions">

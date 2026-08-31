@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { DOC_TYPE_LABEL, normalizeDocType } from '../shared/docTypes.ts'
 import { asRecord, parseJsonObject } from '../shared/json.ts'
-import { coerceAuditType, locateInText, relocateIssues, tightenIssueSpan } from '../shared/locate.ts'
+import { coerceAuditType, locateInText, relocateIssues } from '../shared/locate.ts'
 import type { AuditIssue, DocumentContext, RewriteMode } from '../shared/types.ts'
 import { isEncrypted } from '../shared/types.ts'
 import { AuditMarks, auditPluginKey } from './extensions/AuditMarks.ts'
@@ -44,14 +44,12 @@ function parseIssues(raw: string, text: string): AuditIssue[] {
       const row = asRecord(item) || {}
       return {
         id: typeof row.id === 'string' ? row.id : `audit-${i}`,
-        ...tightenIssueSpan({
-          type: coerceAuditType(
-            row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
-            typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
-          ),
-          original: typeof row.original === 'string' ? row.original : '',
-          suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
-        }),
+        type: coerceAuditType(
+          row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
+          typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
+        ),
+        original: typeof row.original === 'string' ? row.original : '',
+        suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
         reason: typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
         context: typeof row.context === 'string' ? row.context : '',
         start: -1,
@@ -252,7 +250,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
         showToast('加密模式无可用本地模型，已禁用校核', 'error')
         return
       }
-      const text = editor.getText()
+      const text = getDocPlainText(editor.state.doc).text
       if (!text.trim()) {
         showToast('请先输入正文', 'error')
         return
@@ -274,7 +272,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
           route: routing.audit,
           effort: depth === 'deep' ? routing.auditEffort : '',
         })
-        const live = editor.getText()
+        const live = getDocPlainText(editor.state.doc).text
         const list = relocateIssues(live, parseIssues(raw, live))
         console.info('[dsh-official-writing] audit.live', { chars: live.replace(/\s/g, '').length, kept: list.length, originals: list.map((item) => item.original) })
         setIssues(list)

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
-import { applyIssueToText, coerceAuditType, locateInText, relocateIssues, tightenIssueSpan } from '../shared/locate.ts'
+import { applyIssueToText, coerceAuditType, locateInText, relocateIssues, tightenIssueSpan, visualMarkRange } from '../shared/locate.ts'
 import { isUnsupportedEffort, pickOffEffort, resolveEffort, streamAttempts } from '../shared/effort.ts'
 import { autocompleteSystem, cleanModelText, extractGhostFromReasoning, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
@@ -41,6 +41,38 @@ test('tightenIssueSpan keeps only the changed fragment', () => {
   })
   assert.equal(tight.original, '点于')
   assert.equal(tight.suggestion, ':00在')
+})
+
+test('visualMarkRange underlines the changed fragment after a newline', () => {
+  const text = '第一段内容。\n定为4月3日（周五）上午9点于综合楼召开。\n请市科技局参加。'
+  const issue = {
+    type: 'polish',
+    original: '上午9点于综合楼',
+    suggestion: '上午9:00在综合楼',
+    context: '定为4月3日（周五）上午9点于综合楼召开。',
+  }
+  const loc = locateInText(text, issue)
+  assert.ok(loc)
+  assert.equal(text.slice(loc.start, loc.end), '上午9点于综合楼')
+  const mark = visualMarkRange(text, issue)
+  assert.ok(mark)
+  assert.equal(text.slice(mark.start, mark.end), '点于')
+})
+
+test('one-character original only locates inside context', () => {
+  const text = '第一段、内容。\n请市科技局、市人社局分管负责同志参加。'
+  const range = locateInText(text, {
+    type: 'polish',
+    original: '、',
+    suggestion: '，',
+    context: '请市科技局、市人社局分管负责同志参加。',
+  })
+  assert.ok(range)
+  assert.equal(range.start, text.lastIndexOf('、'))
+  assert.equal(
+    locateInText(text, { type: 'polish', original: '、', suggestion: '，' }),
+    null,
+  )
 })
 
 test('locate never expands to the whole context span', () => {
