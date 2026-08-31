@@ -135,6 +135,6 @@ test('pickOffEffort prefers true off over low', () => {
   })
   assert.equal(deepseek[0]?.reasoningEffort, 'off')
   const noReasoning = streamAttempts({ preferOff: true, efforts: [] })
+  assert.deepEqual(noReasoning[0], {})
   assert.ok(noReasoning.some((item) => item.purpose === 'session-title'))
-  assert.ok(noReasoning.some((item) => !item.reasoningEffort && !item.purpose))
 })

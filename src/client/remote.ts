@@ -74,17 +74,19 @@ export async function fetchCatalog(ctx: Context): Promise<CatalogSnapshot> {
 export async function runStreamingJob(
   ctx: Context,
   request: CompleteRequest,
-  handlers: {
+  handlers?: {
     onDelta?: (text: string) => void
     onDone?: (text: string) => void
   },
   signal?: AbortSignal,
 ): Promise<string> {
   void ctx
+  const onDelta = handlers?.onDelta
+  const onDone = handlers?.onDone
   const api = cached ?? (await waitWritingApi())
   const started = unwrap(await api.startJob(request))
   let last = started.text || ''
-  if (last) handlers.onDelta?.(last)
+  if (last) onDelta?.(last)
   if (signal?.aborted) {
     await api.cancelJob(started.jobId)
     throw new DOMException('Aborted', 'AbortError')
@@ -100,15 +102,15 @@ export async function runStreamingJob(
       await sleep(request.task === 'autocomplete' ? 16 : 32, signal)
       snap = unwrap(await api.pollJob(started.jobId))
       if (snap.text.length > last.length) {
-        handlers.onDelta?.(snap.text.slice(last.length))
+        onDelta?.(snap.text.slice(last.length))
         last = snap.text
       } else if (snap.text !== last) {
         last = snap.text
-        handlers.onDelta?.('')
+        onDelta?.('')
       }
     }
     if (snap.error) throw new Error(snap.error)
-    handlers.onDone?.(snap.text)
+    onDone?.(snap.text)
     return snap.text
   } finally {
     signal?.removeEventListener('abort', onAbort)

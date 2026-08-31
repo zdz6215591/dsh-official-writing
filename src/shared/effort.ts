@@ -46,11 +46,10 @@ export function streamAttempts(opts: {
     attempts.push(attempt)
   }
   if (advertised) push({ reasoningEffort: advertised })
-  if (opts.preferOff) {
-    push({ purpose: 'session-title' })
-    if (advertised !== 'off') push({ reasoningEffort: 'off', purpose: 'session-title' })
-  }
   push({})
+  if (opts.preferOff && advertised !== 'off') {
+    push({ purpose: 'session-title' })
+  }
   return attempts
 }
 
