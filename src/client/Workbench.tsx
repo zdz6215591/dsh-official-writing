@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { DOC_TYPE_LABEL, normalizeDocType } from '../shared/docTypes.ts'
 import { asRecord, parseJsonObject } from '../shared/json.ts'
-import { locateInText, relocateIssues } from '../shared/locate.ts'
+import { coerceAuditType, locateInText, relocateIssues } from '../shared/locate.ts'
 import type { AuditIssue, DocumentContext, RewriteMode } from '../shared/types.ts'
 import { isEncrypted } from '../shared/types.ts'
 import { AuditMarks, auditPluginKey } from './extensions/AuditMarks.ts'
@@ -44,7 +44,10 @@ function parseIssues(raw: string, text: string): AuditIssue[] {
       const row = asRecord(item) || {}
       return {
         id: typeof row.id === 'string' ? row.id : `audit-${i}`,
-        type: row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
+        type: coerceAuditType(
+          row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
+          typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
+        ),
         original: typeof row.original === 'string' ? row.original : '',
         suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
         reason: typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
@@ -105,7 +108,11 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
     editorProps: {
       attributes: { class: 'ow-doc-editor', spellcheck: 'false' },
     },
-    onCreate: ({ editor: ed }) => setCharCount(countDocChars(ed.getText())),
+    onCreate: ({ editor: ed }) => {
+      setCharCount(countDocChars(ed.getText()))
+      const { text } = getDocPlainText(ed.state.doc)
+      setIssues((prev) => (prev.length ? relocateIssues(text, prev) : prev))
+    },
     onUpdate: ({ editor: ed }) => {
       htmlRef.current = ed.getHTML()
       setCharCount(countDocChars(ed.getText()))
@@ -264,7 +271,8 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
           route: routing.audit,
           effort: depth === 'deep' ? routing.auditEffort : '',
         })
-        const list = parseIssues(raw, text)
+        const live = getDocPlainText(editor.state.doc).text
+        const list = relocateIssues(live, parseIssues(raw, live))
         setIssues(list)
         editor.commands.setAuditIssues(list)
         const tag = depth === 'deep' ? '深度' : '快速'

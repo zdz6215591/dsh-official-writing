@@ -8,7 +8,7 @@ import {
 import { isUnsupportedEffort, streamAttempts } from '../shared/effort.ts'
 import { logOw } from './log.ts'
 import { asRecord, asString, parseJsonObject } from '../shared/json.ts'
-import { locateInText, normalizeAuditType } from '../shared/locate.ts'
+import { coerceAuditType, locateInText, normalizeAuditType } from '../shared/locate.ts'
 import { isLocalRoute } from '../shared/local.ts'
 import {
   auditSystem,
@@ -270,14 +270,17 @@ function buildAuditIssues(raw: string, source: string): AuditIssue[] {
   for (const item of list) {
     const row = asRecord(item)
     if (!row) continue
-    const type = normalizeAuditType(row.type)
-    if (!type) continue
-    const original = type === 'insert' ? '' : asString(row.original)
+    const rawType = normalizeAuditType(row.type)
+    if (!rawType) continue
+    const original = rawType === 'insert' ? '' : asString(row.original)
     const suggestion = asString(row.suggestion)
     const context = asString(row.context)
     const explanation = asString(row.explanation) || asString(row.reason)
+    const type = coerceAuditType(rawType, explanation)
     if (type !== 'insert' && !original && !context) continue
     if (type === 'insert' && !context) continue
+    if (type !== 'insert' && original && !source.includes(original)) continue
+    if (context && !source.includes(context) && !(original && source.includes(original))) continue
     const draft: AuditIssue = {
       id: `audit-${Date.now().toString(36)}-${i++}`,
       type,

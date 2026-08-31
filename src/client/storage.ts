@@ -1,4 +1,5 @@
 import { normalizeDocType } from '../shared/docTypes.ts'
+import { coerceAuditType } from '../shared/locate.ts'
 import type { AuditIssue, DocumentContext, TaskRouting } from '../shared/types.ts'
 
 const KEY = 'dsh-official-writing/v1'
@@ -48,7 +49,12 @@ export function loadState(): PersistedState {
       : null
     return {
       html: typeof parsed.html === 'string' && parsed.html.trim() ? parsed.html : EMPTY_STATE.html,
-      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+      issues: Array.isArray(parsed.issues)
+        ? parsed.issues.map((issue) => ({
+            ...issue,
+            type: coerceAuditType(issue.type, issue.reason || ''),
+          }))
+        : [],
       docCtx,
       wizardDone: Boolean(parsed.wizardDone && docCtx),
       ghostOn: parsed.ghostOn !== false,

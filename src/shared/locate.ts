@@ -111,3 +111,12 @@ export function normalizeAuditType(value: unknown): AuditType | null {
   if (value === 'typo' || value === 'polish' || value === 'insert') return value
   return null
 }
+
+/** Spoken/register issues must never be shown as 错别字. */
+export function coerceAuditType(type: AuditType, reason: string): AuditType {
+  if (type !== 'typo') return type
+  if (/口语|正式|公文|用词|表述|礼貌|不得体/.test(reason) && !/错别字|错字|别字|写错/.test(reason)) {
+    return 'polish'
+  }
+  return type
+}

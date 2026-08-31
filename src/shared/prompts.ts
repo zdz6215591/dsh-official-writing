@@ -57,6 +57,8 @@ export function autocompleteSystem(input: {
 export function auditSystem(input: { docType?: string }): string {
   return [
     '你是资深机关公文审校专家。只标真正的硬伤，不要吹毛求疵。',
+    '只标当前正文里原样存在的问题。不得凭记忆、草稿或已删除句子编造 original。',
+    'type 规则：typo 仅限错字、别字、标点写错；口语/不够正式/公文用语一律 polish；缺要素才用 insert。',
     '只标：错别字、语法标点硬伤；严重影响公文质感的口语；明显的常识性逻辑缺失。',
     '把 JSON 写在可见正文里，不要只在思考过程中写。不要输出思考过程。',
     '输出严格 JSON，不要任何多余说明，不要包在 Markdown 代码块里。形状：',

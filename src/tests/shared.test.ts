@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
-import { applyIssueToText, locateInText, relocateIssues } from '../shared/locate.ts'
+import { applyIssueToText, coerceAuditType, locateInText, relocateIssues } from '../shared/locate.ts'
 import { isUnsupportedEffort, pickOffEffort, resolveEffort, streamAttempts } from '../shared/effort.ts'
 import { autocompleteSystem, cleanModelText, extractGhostFromReasoning, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
@@ -113,6 +113,12 @@ test('relocateIssues drops vanished originals', () => {
   ])
   assert.equal(kept.length, 1)
   assert.equal(kept[0]!.id, '1')
+})
+
+test('coerceAuditType demotes spoken-register typos to polish', () => {
+  assert.equal(coerceAuditType('typo', '口语化且不够正式'), 'polish')
+  assert.equal(coerceAuditType('typo', '错别字：把部写成布'), 'typo')
+  assert.equal(coerceAuditType('insert', '缺时间'), 'insert')
 })
 
 test('parseJsonObject degrades through fences and braces', () => {
