@@ -38,10 +38,12 @@ function buildDecorations(doc: any, state: AuditPluginState): DecorationSet {
     const cls =
       issue.type === 'typo' ? 'ow-audit-typo' : issue.type === 'insert' ? 'ow-audit-insert' : 'ow-audit-polish'
     const active = state.activeId === issue.id ? ' ow-audit-active' : ''
+    const index = state.issues.indexOf(issue) + 1
     decos.push(
       Decoration.inline(range.from, range.to, {
         class: `${cls}${active}`,
         'data-issue-id': issue.id,
+        'data-issue-n': String(index),
       }),
     )
   }

@@ -84,7 +84,7 @@ export function AnnotationSidebar({
         {issues.length === 0 ? (
           <div className="ow-comment-empty">{auditing ? '正在审阅全文…' : '校验后显示批注。可独立滚动本栏。'}</div>
         ) : (
-          issues.map((issue) => (
+          issues.map((issue, index) => (
             <article
               key={issue.id}
               data-anno-id={issue.id}
@@ -100,6 +100,7 @@ export function AnnotationSidebar({
               }}
             >
               <div className="ow-anno-kicker" style={{ color: colorOf(issue.type) }}>
+                <span className="ow-anno-n">{index + 1}</span>
                 {TYPE_LABEL[issue.type] || issue.type}
               </div>
               <p className="ow-anno-change">

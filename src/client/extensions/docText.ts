@@ -8,8 +8,8 @@ export function getDocPlainText(doc: { descendants: Function; content: { size: n
   doc.descendants((node: { isBlock?: boolean; isTextblock?: boolean; isText?: boolean; text?: string }, pos: number) => {
     if (node.isBlock && node.isTextblock) {
       if (!first) {
-        map.push(pos)
         text += '\n'
+        map.push(-1)
       }
       first = false
     }
@@ -31,11 +31,15 @@ export function offsetsToRange(
   docSize: number,
 ): { from: number; to: number } | null {
   if (start < 0 || end <= start) return null
-  const from = map[start]
-  const toIdx = Math.min(end - 1, map.length - 1)
-  if (from == null || map[toIdx] == null) return null
-  const to = map[toIdx]! + 1
-  if (from < 1 || to > docSize) return null
+  let from = -1
+  let to = -1
+  for (let i = start; i < end && i < map.length; i++) {
+    const pos = map[i]
+    if (pos == null || pos < 0) continue
+    if (from < 0) from = pos
+    to = pos + 1
+  }
+  if (from < 1 || to < 0 || to > docSize || from >= to) return null
   return { from, to }
 }
 

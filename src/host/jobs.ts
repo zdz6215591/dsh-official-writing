@@ -318,9 +318,9 @@ export async function runJob(
           provider: route.provider,
           model: route.model,
           system,
-          messages: [userMessage(`只输出续写正文本身，不要思考过程。\n光标前上下文：\n${before.slice(-800)}`)],
+          messages: [userMessage(`只输出续写正文本身，不要思考过程。\n光标前上下文：\n${before.slice(-2400)}`)],
           temperature: 0.2,
-          maxTokens: 1200,
+          maxTokens: 2048,
           signal: clock.signal,
         },
         (delta) => {
@@ -332,7 +332,7 @@ export async function runJob(
       )
       const cleaned = cleanModelText(raw || job.text)
       const fromReasoning = cleaned || extractGhostFromReasoning(raw || job.text)
-      job.text = (fromReasoning || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 60)
+      job.text = (fromReasoning || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 120)
       logOw('autocomplete.out', { chars: job.text.length, preview: job.text })
       return
     }

@@ -45,16 +45,20 @@ export const STYLES = `
 .ow-root .ProseMirror p{margin:0 0 1.05em;text-indent:2em;text-align:justify}
 .ow-root .ProseMirror h1{text-indent:0;text-align:center;font-family:var(--ow-font-title);font-size:28px;font-weight:400;line-height:1.55;letter-spacing:.12em;margin:.2em 0 1.6em}
 .ow-root .ProseMirror h2,.ow-root .ProseMirror h3{text-indent:0;font-weight:600;margin:1.1em 0 .55em}
-.ow-root .ProseMirror p.is-editor-empty:first-child::before,.ow-root .ProseMirror .is-empty::before{content:attr(data-placeholder);float:left;color:var(--ow-faint);pointer-events:none;height:0;text-indent:0;font-family:var(--ow-font-ui);font-size:.9rem}
+.ow-root .ProseMirror p.is-editor-empty:first-child::before,.ow-root .ProseMirror .is-empty::before{content:attr(data-placeholder);color:var(--ow-faint);pointer-events:none;height:0;font-family:var(--ow-font-ui);font-size:.9rem;text-indent:0}
+.ow-root .ProseMirror p.is-empty::before{margin-left:2em}
+.ow-root .ProseMirror .is-empty[data-ghost]::before,.ow-root .ProseMirror p:has([data-ghost])::before{content:none !important}
 .ow-ghost-text{color:rgba(0,0,0,.28);pointer-events:none;user-select:none}
 .ow-ghost-loading{display:inline-flex;gap:3px;align-items:center;margin-left:1px;pointer-events:none;height:1em}
 .ow-ghost-loading .dot{width:3px;height:3px;border-radius:50%;background:rgba(0,0,0,.35);animation:ow-pulse 1.2s ease-in-out infinite}
 .ow-ghost-loading .dot:nth-child(2){animation-delay:.18s}
 .ow-ghost-loading .dot:nth-child(3){animation-delay:.36s}
 @keyframes ow-pulse{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:.85;transform:translateY(-1.5px)}}
-.ow-audit-typo{text-decoration:underline wavy rgba(220,38,38,.45);text-underline-offset:3px;cursor:pointer}
-.ow-audit-polish{text-decoration:underline dotted rgba(217,119,6,.45);text-underline-offset:3px;cursor:pointer}
-.ow-audit-insert{box-shadow:inset 2px 0 0 rgba(22,163,74,.35);cursor:pointer}
+.ow-audit-typo,.ow-audit-polish,.ow-audit-insert{cursor:pointer;position:relative}
+.ow-audit-typo{text-decoration:underline wavy rgba(220,38,38,.45);text-underline-offset:3px}
+.ow-audit-polish{text-decoration:underline dotted rgba(217,119,6,.45);text-underline-offset:3px}
+.ow-audit-insert{box-shadow:inset 2px 0 0 rgba(22,163,74,.35)}
+.ow-audit-typo::after,.ow-audit-polish::after,.ow-audit-insert::after{content:attr(data-issue-n);font-size:10px;line-height:1;margin-left:2px;vertical-align:super;color:var(--ow-faint);font-family:var(--ow-font-ui)}
 .ow-audit-active{background:rgba(0,0,0,.04)}
 .ow-audit-applied{background:rgba(22,163,74,.12);border-radius:2px;cursor:pointer}
 .ow-comment-pane{width:240px;flex:0 0 240px;display:flex;flex-direction:column;min-height:0;align-self:stretch;position:relative;z-index:4}
@@ -67,7 +71,8 @@ export const STYLES = `
 .ow-comment-empty{padding:1.2rem .2rem;color:var(--ow-faint);font-size:.78rem;line-height:1.65}
 .ow-anno-card{background:rgba(255,255,255,.9);border:1px solid var(--ow-line);border-radius:10px;padding:.55rem .65rem .5rem;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.04)}
 .ow-anno-card.active{border-color:rgba(0,0,0,.18)}
-.ow-anno-kicker{font-size:.64rem;font-weight:500;margin-bottom:.28rem;letter-spacing:.04em;opacity:.7}
+.ow-anno-kicker{font-size:.64rem;font-weight:500;margin-bottom:.28rem;letter-spacing:.04em;opacity:.7;display:flex;align-items:center;gap:.35rem}
+.ow-anno-n{min-width:16px;height:16px;border-radius:999px;background:rgba(0,0,0,.06);color:var(--ow-muted);display:inline-grid;place-items:center;font-size:.62rem;font-weight:650}
 .ow-anno-change{margin:0 0 .35rem;font-size:.82rem;line-height:1.55;word-break:break-all}
 .ow-anno-orig{color:var(--ow-ink);font-weight:600}
 .ow-anno-arrow{color:var(--ow-faint);font-weight:400}
