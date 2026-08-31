@@ -80,6 +80,8 @@ export function locateIssue(text: string, issue: AuditIssue): TextRange | null {
 export function relocateIssues(text: string, issues: AuditIssue[]): AuditIssue[] {
   const next: AuditIssue[] = []
   for (const issue of issues) {
+    if (issue.type !== 'insert' && issue.original && !text.includes(issue.original)) continue
+    if (issue.context && !text.includes(issue.context) && !(issue.original && text.includes(issue.original))) continue
     const range = locateInText(text, issue)
     if (!range) continue
     next.push({ ...issue, start: range.start, end: range.end })

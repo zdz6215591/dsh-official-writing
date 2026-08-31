@@ -279,8 +279,14 @@ function buildAuditIssues(raw: string, source: string): AuditIssue[] {
     const type = coerceAuditType(rawType, explanation)
     if (type !== 'insert' && !original && !context) continue
     if (type === 'insert' && !context) continue
-    if (type !== 'insert' && original && !source.includes(original)) continue
-    if (context && !source.includes(context) && !(original && source.includes(original))) continue
+    if (type !== 'insert' && original && !source.includes(original)) {
+      logOw('audit.drop', { original: original.slice(0, 40), reason: 'original-missing' })
+      continue
+    }
+    if (context && !source.includes(context) && !(original && source.includes(original))) {
+      logOw('audit.drop', { context: context.slice(0, 40), reason: 'context-missing' })
+      continue
+    }
     const draft: AuditIssue = {
       id: `audit-${Date.now().toString(36)}-${i++}`,
       type,
@@ -292,7 +298,11 @@ function buildAuditIssues(raw: string, source: string): AuditIssue[] {
       end: -1,
     }
     const located = locateInText(source, draft)
-    if (!located) continue
+    if (!located) {
+      logOw('audit.drop', { original: original.slice(0, 40), reason: 'not-located' })
+      continue
+    }
+    logOw('audit.keep', { type, original: original.slice(0, 40), start: located.start })
     issues.push({ ...draft, start: located.start, end: located.end })
   }
   issues.sort((a, b) => a.start - b.start || a.end - b.end)
@@ -380,6 +390,7 @@ export async function runJob(
     }
 
     const system = auditSystem({ docType: request.docType })
+    logOw('audit.source', { chars: request.text.replace(/\s/g, '').length, preview: request.text.replace(/\s+/g, ' ').slice(0, 160) })
     const raw = await streamMaybeOffThinking(
       ctx,
       {
@@ -403,6 +414,7 @@ export async function runJob(
       true,
     )
     const issues = buildAuditIssues(raw, request.text)
+    logOw('audit.done', { kept: issues.length, originals: issues.map((item) => item.original.slice(0, 24)) })
     job.text = JSON.stringify({ suggestions: issues })
   } finally {
     clock.dispose()

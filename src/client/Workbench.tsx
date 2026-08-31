@@ -250,11 +250,12 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
         showToast('加密模式无可用本地模型，已禁用校核', 'error')
         return
       }
-      const { text } = getDocPlainText(editor.state.doc)
+      const text = editor.getText()
       if (!text.trim()) {
         showToast('请先输入正文', 'error')
         return
       }
+      console.info('[dsh-official-writing] audit.send', text.replace(/\s+/g, ' ').slice(0, 160))
       setAuditing(true)
       showToast(depth === 'deep' ? '深度校验中…' : '快速校验中…', 'info')
       setIssues([])
@@ -271,8 +272,9 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
           route: routing.audit,
           effort: depth === 'deep' ? routing.auditEffort : '',
         })
-        const live = getDocPlainText(editor.state.doc).text
+        const live = editor.getText()
         const list = relocateIssues(live, parseIssues(raw, live))
+        console.info('[dsh-official-writing] audit.live', { chars: live.replace(/\s/g, '').length, kept: list.length, originals: list.map((item) => item.original) })
         setIssues(list)
         editor.commands.setAuditIssues(list)
         const tag = depth === 'deep' ? '深度' : '快速'
