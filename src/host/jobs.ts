@@ -20,8 +20,8 @@ import { normalizeDocType } from '../shared/docTypes.ts'
 import type { AuditIssue, CompleteRequest, JobSnapshot, RewriteMode } from '../shared/types.ts'
 import { parseRouteKey } from '../shared/types.ts'
 
-export const STREAM_TIMEOUT_MS = 12_000
-export const AUDIT_TIMEOUT_MS = 25_000
+export const STREAM_TIMEOUT_MS = 25_000
+export const AUDIT_TIMEOUT_MS = 40_000
 
 export interface JobRecord extends JobSnapshot {
   abort: AbortController
@@ -170,10 +170,12 @@ async function streamMaybeOffThinking(
   onDelta: (text: string) => void,
   efforts: { id: string; name: string }[],
   requested?: string,
+  allowReasoningFallback = false,
 ): Promise<string> {
   const attempts = streamAttempts({ requested, efforts, preferOff: !requested })
   const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta), next.signal)
   let lastError: unknown
+  let lastReasoning = ''
   for (const attempt of attempts) {
     const next: GenerateOptions = { ...options }
     if (attempt.reasoningEffort) next.reasoningEffort = asEffort(attempt.reasoningEffort)
@@ -182,7 +184,7 @@ async function streamMaybeOffThinking(
     else delete next.purpose
     try {
       const result = await call(next)
-      const visible = result.text.trim() ? result.text : result.reasoning
+      if (result.reasoning.trim()) lastReasoning = result.reasoning
       logOw('stream.ok', {
         provider: options.provider,
         model: options.model,
@@ -192,10 +194,7 @@ async function streamMaybeOffThinking(
         reasoningChars: result.reasoning.length,
         kinds: result.kinds.join(','),
       })
-      if (visible.trim()) {
-        if (!result.text.trim() && result.reasoning.trim()) onDelta(result.reasoning)
-        return visible
-      }
+      if (result.text.trim()) return result.text
       lastError = new Error('EMPTY_RESPONSE')
     } catch (error) {
       lastError = error
@@ -212,6 +211,10 @@ async function streamMaybeOffThinking(
         (error instanceof Error && /UNSUPPORTED|does not support|EMPTY_RESPONSE/i.test(error.message))
       if (!retryable) throw error
     }
+  }
+  if (allowReasoningFallback && lastReasoning.trim()) {
+    logOw('stream.reasoning-fallback', { provider: options.provider, model: options.model, chars: lastReasoning.length })
+    return lastReasoning
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError || '模型调用失败'))
 }
@@ -279,7 +282,7 @@ export async function runJob(
           provider: route.provider,
           model: route.model,
           system,
-          messages: [userMessage(`光标前上下文：\n${before.slice(-800)}`)],
+          messages: [userMessage(`只输出续写正文本身，不要思考过程。\n光标前上下文：\n${before.slice(-800)}`)],
           temperature: 0.2,
           maxTokens: 256,
           signal: clock.signal,
@@ -354,6 +357,7 @@ export async function runJob(
       },
       route.efforts,
       request.depth === 'deep' ? request.effort : undefined,
+      true,
     )
     const issues = buildAuditIssues(raw, request.text)
     job.text = JSON.stringify({ suggestions: issues })

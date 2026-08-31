@@ -41,7 +41,8 @@ export function autocompleteSystem(input: {
   const title = (input.title || '').trim()
   const intent = (input.intent || '').trim()
   return [
-    '你是专业公文写作秘书。根据光标前的上下文，立刻输出续写正文，不要思考过程。',
+    '你是专业公文写作秘书。根据光标前的上下文，立刻输出续写正文。',
+    '必须把续写写在可见正文里，不要只在思考过程中写。不要输出思考过程。',
     '禁止：标题、解释、重复上文、重复标点、Markdown、对话腔、引号包裹、编号列表。',
     '长度 8–40 字。自然衔接上文，符合机关公文用词。',
     '若上文以不完整的句子结尾，必须先把该句补完整，再视情况续写。',
@@ -57,6 +58,7 @@ export function auditSystem(input: { docType?: string }): string {
   return [
     '你是资深机关公文审校专家。只标真正的硬伤，不要吹毛求疵。',
     '只标：错别字、语法标点硬伤；严重影响公文质感的口语；明显的常识性逻辑缺失。',
+    '把 JSON 写在可见正文里，不要只在思考过程中写。不要输出思考过程。',
     '输出严格 JSON，不要任何多余说明，不要包在 Markdown 代码块里。形状：',
     '{"suggestions":[{"type":"typo|polish|insert","original":"原文中存在的问题文本（insert 时为空串）","suggestion":"建议改成什么 / 要插入什么","context":"原文中原封不动存在的连续片段，用于定位","explanation":"为什么改","start":0,"end":0}]}',
     'context 取材规则（最关键）：',
