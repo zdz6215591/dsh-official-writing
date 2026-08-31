@@ -4,7 +4,7 @@ import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
 import { applyIssueToText, locateInText, relocateIssues } from '../shared/locate.ts'
 import { isUnsupportedEffort, pickOffEffort, resolveEffort, streamAttempts } from '../shared/effort.ts'
-import { autocompleteSystem, cleanModelText, styleGuide } from '../shared/prompts.ts'
+import { autocompleteSystem, cleanModelText, extractGhostFromReasoning, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
 
 test('normalizeDocType never falls through', () => {
@@ -115,6 +115,13 @@ test('parseJsonObject degrades through fences and braces', () => {
 test('cleanModelText strips wrappers', () => {
   assert.equal(cleanModelText('```\n请认真贯彻执行。\n```'), '请认真贯彻执行。')
   assert.equal(cleanModelText('「请予复函」'), '请予复函')
+})
+
+test('extractGhostFromReasoning keeps a quoted continuation', () => {
+  assert.equal(
+    extractGhostFromReasoning('可以续写为「现就有关事项通知如下。」然后结束。'),
+    '现就有关事项通知如下。',
+  )
 })
 
 test('autocomplete prompt forbids extras', () => {

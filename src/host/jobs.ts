@@ -14,14 +14,15 @@ import {
   auditSystem,
   autocompleteSystem,
   cleanModelText,
+  extractGhostFromReasoning,
   rewriteSystem,
 } from '../shared/prompts.ts'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import type { AuditIssue, CompleteRequest, JobSnapshot, RewriteMode } from '../shared/types.ts'
 import { parseRouteKey } from '../shared/types.ts'
 
-export const STREAM_TIMEOUT_MS = 25_000
-export const AUDIT_TIMEOUT_MS = 40_000
+export const STREAM_TIMEOUT_MS = 90_000
+export const AUDIT_TIMEOUT_MS = 90_000
 
 export interface JobRecord extends JobSnapshot {
   abort: AbortController
@@ -141,22 +142,37 @@ async function streamText(
   ctx: Context,
   options: GenerateOptions,
   onDelta: (text: string) => void,
-  maxWaitForTextMs = 0,
-): Promise<{ text: string; reasoning: string; kinds: string[] }> {
+): Promise<{ text: string; reasoning: string; kinds: string[]; usage?: unknown; ms: number }> {
   const assembler = new BlockAssembler()
   const kinds: string[] = []
   const started = Date.now()
-  let sawText = false
+  let textChars = 0
+  let reasoningChars = 0
+  let chunkCount = 0
+  logOw('stream.begin', {
+    provider: options.provider,
+    model: options.model,
+    effort: String(options.reasoningEffort || ''),
+    purpose: options.purpose || '',
+    maxTokens: options.maxTokens || 0,
+  })
   for await (const chunk of ctx.llm.stream(options)) {
     if (options.signal?.aborted) throw new Error('TIMEOUT')
     assembler.push(chunk)
+    chunkCount += 1
     kinds.push(chunk.type)
     if (chunk.type === 'text-delta' && chunk.text) {
-      sawText = true
+      textChars += chunk.text.length
       onDelta(chunk.text)
+      if (textChars === chunk.text.length) {
+        logOw('stream.first-text', { ms: Date.now() - started, chars: chunk.text.length, preview: chunk.text.slice(0, 80) })
+      }
     }
-    if (maxWaitForTextMs && !sawText && Date.now() - started > maxWaitForTextMs) {
-      throw new Error('EMPTY_RESPONSE')
+    if (chunk.type === 'reasoning-delta' && 'text' in chunk && chunk.text) {
+      reasoningChars += String(chunk.text).length
+      if (reasoningChars === String(chunk.text).length) {
+        logOw('stream.first-reasoning', { ms: Date.now() - started, chars: String(chunk.text).length })
+      }
     }
   }
   const error = finishError(assembler.finish)
@@ -170,7 +186,17 @@ async function streamText(
     .filter((block) => block.type === 'reasoning')
     .map((block) => ('text' in block ? String(block.text) : ''))
     .join('')
-  return { text, reasoning, kinds: [...new Set(kinds)] }
+  const ms = Date.now() - started
+  logOw('stream.end', {
+    ms,
+    chunks: chunkCount,
+    textChars: text.length,
+    reasoningChars: reasoning.length,
+    kinds: [...new Set(kinds)].join(','),
+    finish: assembler.finish?.kind || '',
+    usage: assembler.usage || null,
+  })
+  return { text, reasoning, kinds: [...new Set(kinds)], usage: assembler.usage, ms }
 }
 
 async function streamMaybeOffThinking(
@@ -180,12 +206,10 @@ async function streamMaybeOffThinking(
   efforts: { id: string; name: string }[],
   requested?: string,
   allowReasoningFallback = false,
-  once = false,
 ): Promise<string> {
-  const attempts = streamAttempts({ requested, efforts, preferOff: !requested && !once })
-  const planned = once ? attempts.slice(0, 1) : attempts
-  const waitText = once ? 6_000 : 0
-  const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta, waitText), next.signal)
+  const attempts = streamAttempts({ requested, efforts, preferOff: !requested })
+  const planned = attempts.slice(0, 1)
+  const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta), next.signal)
   let lastError: unknown
   let lastReasoning = ''
   for (const attempt of planned) {
@@ -296,7 +320,7 @@ export async function runJob(
           system,
           messages: [userMessage(`只输出续写正文本身，不要思考过程。\n光标前上下文：\n${before.slice(-800)}`)],
           temperature: 0.2,
-          maxTokens: 256,
+          maxTokens: 1200,
           signal: clock.signal,
         },
         (delta) => {
@@ -304,11 +328,12 @@ export async function runJob(
         },
         route.efforts,
         undefined,
-        false,
         true,
       )
       const cleaned = cleanModelText(raw || job.text)
-      job.text = (cleaned || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 60)
+      const fromReasoning = cleaned || extractGhostFromReasoning(raw || job.text)
+      job.text = (fromReasoning || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 60)
+      logOw('autocomplete.out', { chars: job.text.length, preview: job.text })
       return
     }
 

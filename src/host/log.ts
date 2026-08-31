@@ -6,7 +6,7 @@ const file = join(homedir(), '.dsh', 'official-writing.log')
 
 export function logOw(event: string, data: Record<string, unknown> = {}): void {
   const line = `${new Date().toISOString()} ${event} ${JSON.stringify(data)}\n`
-  console.error(`[dsh-official-writing] ${event}`, data)
+  console.error(`[dsh-official-writing] ${event} ${JSON.stringify(data)}`)
   void mkdir(join(homedir(), '.dsh'), { recursive: true })
     .then(() => appendFile(file, line, 'utf8'))
     .catch(() => undefined)

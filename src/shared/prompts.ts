@@ -116,3 +116,14 @@ export function cleanModelText(raw: string): string {
   }
   return text
 }
+
+/** Last plausible continuation from a thinking dump when the model emitted no visible text. */
+export function extractGhostFromReasoning(raw: string): string {
+  const cleaned = cleanModelText(raw).replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  const quoted = cleaned.match(/[「“"]([^」”"]{8,80})[」”"]/)
+  if (quoted?.[1]) return quoted[1].trim()
+  const sentences = cleaned.split(/(?<=[。！？；])/).map((item) => item.trim()).filter((item) => item.length >= 8)
+  const last = sentences.at(-1) || cleaned
+  return last.slice(0, 60)
+}
