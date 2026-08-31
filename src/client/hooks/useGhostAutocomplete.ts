@@ -131,17 +131,11 @@ export function useGhostAutocomplete(
       }
     }
 
-    const schedule = (force = false) => {
-      if (!shouldTrigger(editor) || !enoughContext(editor)) {
-        cancel()
-        return
-      }
+    const schedule = () => {
+      if (!shouldTrigger(editor) || !enoughContext(editor)) return
+      if (abortRef.current && !abortRef.current.signal.aborted) return
+      if (timerRef.current) return
       const pos = editor.state.selection.from
-      if (!force && abortRef.current && !abortRef.current.signal.aborted) return
-      if (!force && timerRef.current) return
-      clearTimer()
-      abortRef.current?.abort()
-      editor.commands.clearGhost()
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null
         if (!shouldTrigger(editor)) return
@@ -153,19 +147,17 @@ export function useGhostAutocomplete(
     const onTransaction = ({ transaction }: { transaction: any }) => {
       if (transaction.getMeta(ghostPluginKey) !== undefined) return
       if (transaction.getMeta('ow-accept-ghost')) return
-      if (transaction.docChanged) {
+      if (transaction.docChanged && transaction.steps?.length) {
         cancel()
-        schedule(true)
+        schedule()
         return
       }
-      if (transaction.selectionSet) {
-        const pos = editor.state.selection.from
-        if (ghostPosRef.current >= 0 && Math.abs(pos - ghostPosRef.current) > 1) {
-          cancel()
-          ghostPosRef.current = -1
-        }
-        schedule(false)
+      if (!transaction.selectionSet || transaction.docChanged) return
+      if (ghostPosRef.current < 0) {
+        schedule()
+        return
       }
+      if (Math.abs(editor.state.selection.from - ghostPosRef.current) > 2) cancel()
     }
 
     editor.on('transaction', onTransaction)

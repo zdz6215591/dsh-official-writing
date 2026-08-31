@@ -26,13 +26,13 @@ export const GhostText = Extension.create({
       setGhost:
         (state: GhostState | null) =>
         ({ tr, dispatch }) => {
-          if (dispatch) dispatch(tr.setMeta(ghostPluginKey, state))
+          if (dispatch) dispatch(tr.setMeta(ghostPluginKey, state).setMeta('addToHistory', false))
           return true
         },
       clearGhost:
         () =>
         ({ tr, dispatch }) => {
-          if (dispatch) dispatch(tr.setMeta(ghostPluginKey, null))
+          if (dispatch) dispatch(tr.setMeta(ghostPluginKey, null).setMeta('addToHistory', false))
           return true
         },
     }
@@ -47,7 +47,11 @@ export const GhostText = Extension.create({
             const meta = tr.getMeta(ghostPluginKey)
             if (meta !== undefined) return meta as GhostState | null
             if (!value) return null
-            if (tr.docChanged) return null
+            if (tr.docChanged) {
+              const mapped = tr.mapping.map(value.pos)
+              if (mapped < 0 || mapped > tr.doc.content.size) return null
+              return { ...value, pos: mapped }
+            }
             return value
           },
         },

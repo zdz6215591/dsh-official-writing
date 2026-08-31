@@ -21,6 +21,7 @@ export function AnnotationSidebar({
   issues,
   activeId,
   auditing,
+  paperRef,
   onHover,
   onAccept,
   onDismiss,
@@ -31,6 +32,7 @@ export function AnnotationSidebar({
   issues: AuditIssue[]
   activeId: string | null
   auditing: boolean
+  paperRef?: React.RefObject<HTMLElement | null>
   onHover: (id: string | null) => void
   onAccept: (issue: AuditIssue) => void
   onDismiss: (id: string) => void
