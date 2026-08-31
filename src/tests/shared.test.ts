@@ -33,6 +33,19 @@ test('locate uses context, not stale offsets', () => {
   assert.equal(text.slice(range.start, range.end), '贯彻执行')
 })
 
+test('locate prefers the occurrence nearest the previous offset', () => {
+  const text = '请认真贯彻执行。随后请认真贯彻执行。'
+  const first = '请认真贯彻执行。'
+  const range = locateInText(text, {
+    type: 'typo',
+    original: '贯彻执行',
+    context: first,
+    start: text.lastIndexOf(first) + '请认真'.length,
+  })
+  assert.ok(range)
+  assert.equal(range.start, text.lastIndexOf('贯彻执行'))
+})
+
 test('insert locates by preceding context', () => {
   const text = '会议指出工作进展顺利。下一步将细化分工。'
   const range = locateInText(text, {

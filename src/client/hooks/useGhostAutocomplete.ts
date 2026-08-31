@@ -71,10 +71,12 @@ export function useGhostAutocomplete(
       }
     }
 
+    const ghostPosRef = { current: -1 }
     const cancel = () => {
       abortRef.current?.abort()
       abortRef.current = null
       seqRef.current += 1
+      ghostPosRef.current = -1
       clearTimer()
       editor.commands.clearGhost()
     }
@@ -89,6 +91,7 @@ export function useGhostAutocomplete(
       const ac = new AbortController()
       abortRef.current = ac
       const safe = Math.max(0, Math.min(pos, editor.state.doc.content.size))
+      ghostPosRef.current = safe
       editor.commands.setGhost({ pos: safe, text: '', loading: true })
       let acc = ''
       try {
@@ -109,7 +112,7 @@ export function useGhostAutocomplete(
             onDelta: (chunk) => {
               if (seqRef.current !== seq) return
               acc += chunk
-              editor.commands.setGhost({ pos: safe, text: acc, loading: false })
+              editor.commands.setGhost({ pos: ghostPosRef.current < 0 ? safe : ghostPosRef.current, text: acc, loading: false })
             },
           },
           ac.signal,
@@ -155,10 +158,18 @@ export function useGhostAutocomplete(
       if (transaction.getMeta(ghostPluginKey) !== undefined) return
       if (transaction.getMeta('ow-accept-ghost')) return
       if (transaction.docChanged) {
+        cancel()
         schedule(true)
         return
       }
-      if (transaction.selectionSet) schedule(false)
+      if (transaction.selectionSet) {
+        const pos = editor.state.selection.from
+        if (ghostPosRef.current >= 0 && Math.abs(pos - ghostPosRef.current) > 1) {
+          cancel()
+          ghostPosRef.current = -1
+        }
+        schedule(false)
+      }
     }
 
     editor.on('transaction', onTransaction)

@@ -25,7 +25,7 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
 
   if (type === 'insert') {
     if (context) {
-      const idx = text.indexOf(context)
+      const idx = indexOfPreferred(text, context, issue.start)
       if (idx >= 0) return { start: idx, end: idx + context.length }
     }
     return null
@@ -58,12 +58,21 @@ export function locateInText(text: string, issue: IssueLike): TextRange | null {
 
 function indexOfPreferred(text: string, needle: string, hint?: number): number {
   if (!needle) return -1
-  if (typeof hint === 'number' && hint >= 0) {
-    if (text.slice(hint, hint + needle.length) === needle) return hint
-    const nearby = text.indexOf(needle, Math.max(0, hint - needle.length))
-    if (nearby >= 0) return nearby
+  let idx = text.indexOf(needle)
+  if (idx < 0) return -1
+  if (typeof hint !== 'number' || hint < 0) return idx
+  if (text.slice(hint, hint + needle.length) === needle) return hint
+  let best = idx
+  let bestDist = Math.abs(idx - hint)
+  while (idx >= 0) {
+    const dist = Math.abs(idx - hint)
+    if (dist < bestDist) {
+      best = idx
+      bestDist = dist
+    }
+    idx = text.indexOf(needle, idx + 1)
   }
-  return text.indexOf(needle)
+  return best
 }
 
 export function locateIssue(text: string, issue: AuditIssue): TextRange | null {

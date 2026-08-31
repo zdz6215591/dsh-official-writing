@@ -63,11 +63,6 @@ export function AnnotationSidebar({
     return () => dom.removeEventListener('click', onClick)
   }, [editor, scrollCardIntoView])
 
-  const shortText = (s: string, n = 22) => {
-    const t = (s || '').replace(/\s+/g, '')
-    return t.length <= n ? t : `${t.slice(0, n)}…`
-  }
-
   return (
     <aside className="ow-comment-pane" ref={paneRef as React.RefObject<HTMLElement>}>
       <div className="ow-comment-pane-head">
@@ -90,6 +85,7 @@ export function AnnotationSidebar({
           issues.map((issue) => (
             <article
               key={issue.id}
+              data-anno-id={issue.id}
               ref={(el) => {
                 cardRefs.current[issue.id] = el
               }}
@@ -101,22 +97,19 @@ export function AnnotationSidebar({
                 scrollCardIntoView(issue.id)
               }}
             >
-              <div className="ow-anno-type" style={{ color: colorOf(issue.type) }}>
+              <div className="ow-anno-kicker" style={{ color: colorOf(issue.type) }}>
                 {TYPE_LABEL[issue.type] || issue.type}
               </div>
-              <div className="ow-anno-excerpt" title={issue.context || issue.original}>
-                {shortText(issue.context || issue.original || '（插入点）')}
-              </div>
-              <div className="ow-anno-line">
-                <span className="ow-anno-orig">{shortText(issue.original || '（插入）')}</span>
-                <span className="ow-anno-arrow">→</span>
-                <span className="ow-anno-sug">{shortText(issue.suggestion)}</span>
-              </div>
-              {issue.reason && <p className="ow-anno-reason">{issue.reason}</p>}
+              <p className="ow-anno-change">
+                <span className="ow-anno-orig">{issue.original || '（插入）'}</span>
+                <span className="ow-anno-arrow"> → </span>
+                <span className="ow-anno-sug">{issue.suggestion}</span>
+              </p>
+              {issue.reason ? <p className="ow-anno-reason">{issue.reason}</p> : null}
               <div className="ow-anno-actions">
                 <button
                   type="button"
-                  className="ow-btn primary sm"
+                  className="ow-linkish"
                   onClick={(e) => {
                     e.stopPropagation()
                     onAccept(issue)
@@ -126,7 +119,7 @@ export function AnnotationSidebar({
                 </button>
                 <button
                   type="button"
-                  className="ow-btn ghost sm"
+                  className="ow-linkish muted"
                   onClick={(e) => {
                     e.stopPropagation()
                     onDismiss(issue.id)

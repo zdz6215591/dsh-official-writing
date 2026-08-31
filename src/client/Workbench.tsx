@@ -13,6 +13,7 @@ import { countDocChars, getDocPlainText } from './extensions/docText.ts'
 import { GhostText } from './extensions/GhostText.ts'
 import { RewriteMark } from './extensions/RewriteMark.ts'
 import { AnnotationSidebar, focusIssueInDoc } from './components/AnnotationSidebar.tsx'
+import { CommentConnectors } from './components/CommentConnectors.tsx'
 import { BubbleMenuBar } from './components/BubbleMenuBar.tsx'
 import { FloatTools } from './components/FloatTools.tsx'
 import { ModelCenter } from './components/ModelCenter.tsx'
@@ -80,6 +81,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
   const [confirmReset, setConfirmReset] = useState(false)
 
   const docScrollRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const toastId = useRef(0)
   const persistTimer = useRef(0)
   const htmlRef = useRef(initial.html)
@@ -111,7 +113,15 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
       setIssues((prev) => {
         if (!prev.length) return prev
         const next = relocateIssues(text, prev)
-        return next.length === prev.length && next.every((item, i) => item.id === prev[i]?.id) ? prev : next
+        if (
+          next.length === prev.length &&
+          next.every(
+            (item, i) => item.id === prev[i]?.id && item.start === prev[i]?.start && item.end === prev[i]?.end,
+          )
+        ) {
+          return prev
+        }
+        return next
       })
     },
     onTransaction: ({ editor: ed, transaction }) => {
@@ -365,7 +375,8 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
         <div className="ow-lock-banner">加密模式：当前没有可用的本地模型，智能联想 / 校核 / 改写已禁用，不会把正文送出本地。</div>
       )}
       <main className="ow-workspace">
-        <div className="ow-stage">
+        <div className="ow-stage" ref={stageRef}>
+          <CommentConnectors editor={editor} issues={issues} activeId={activeId} stageRef={stageRef} />
           <div className="ow-doc-scroll" ref={docScrollRef}>
             <div className="ow-paper">
               <div className="ow-paper-topbar">

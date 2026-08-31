@@ -171,12 +171,14 @@ async function streamMaybeOffThinking(
   efforts: { id: string; name: string }[],
   requested?: string,
   allowReasoningFallback = false,
+  once = false,
 ): Promise<string> {
-  const attempts = streamAttempts({ requested, efforts, preferOff: !requested })
+  const attempts = streamAttempts({ requested, efforts, preferOff: !requested && !once })
+  const planned = once ? attempts.slice(0, 1) : attempts
   const call = async (next: GenerateOptions) => deadline(streamText(ctx, next, onDelta), next.signal)
   let lastError: unknown
   let lastReasoning = ''
-  for (const attempt of attempts) {
+  for (const attempt of planned) {
     const next: GenerateOptions = { ...options }
     if (attempt.reasoningEffort) next.reasoningEffort = asEffort(attempt.reasoningEffort)
     else delete next.reasoningEffort
@@ -291,6 +293,9 @@ export async function runJob(
           job.text += delta
         },
         route.efforts,
+        undefined,
+        false,
+        true,
       )
       const cleaned = cleanModelText(raw || job.text)
       job.text = (cleaned || (raw || job.text).replace(/\s+/g, ' ').trim()).slice(0, 60)
