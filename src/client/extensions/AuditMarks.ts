@@ -71,7 +71,9 @@ export const AuditMarks = Extension.create({
       setAuditIssues:
         (issues: AuditIssue[]) =>
         ({ state, tr, dispatch }) => {
-          const pinned = pinIssuesToDoc(state.doc, issues)
+          const pinned = issues.every((item) => typeof item.from === 'number' && typeof item.to === 'number')
+            ? issues
+            : pinIssuesToDoc(state.doc, issues)
           if (dispatch) dispatch(tr.setMeta(auditPluginKey, { type: 'setIssues', issues: pinned }))
           return true
         },

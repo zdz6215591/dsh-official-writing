@@ -58,8 +58,10 @@ export function markSliceValid(
   if (issue.from < 1 || issue.to > doc.content.size || issue.from >= issue.to) return false
   if (issue.type === 'insert') return true
   const slice = String(doc.textBetween(issue.from, issue.to, '\n', '') || '')
-  const expected = String(tightenIssueSpan(issue).original || issue.original || '')
-  return Boolean(expected) && slice === expected
+  if (!slice) return false
+  const original = issue.original || ''
+  const expected = String(tightenIssueSpan(issue).original || original)
+  return slice === expected || slice === original || original.includes(slice) || expected.includes(slice)
 }
 
 /** Locate once at audit time. Later edits must map `from`/`to`, never search again. */

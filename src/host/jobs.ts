@@ -8,7 +8,7 @@ import {
 import { isUnsupportedEffort, streamAttempts } from '../shared/effort.ts'
 import { logOw } from './log.ts'
 import { asRecord, asString, parseJsonObject } from '../shared/json.ts'
-import { coerceAuditType, locateInText, normalizeAuditType } from '../shared/locate.ts'
+import { coerceAuditType, isNoOpIssue, locateInText, normalizeAuditType } from '../shared/locate.ts'
 import { isLocalRoute } from '../shared/local.ts'
 import {
   auditSystem,
@@ -296,6 +296,10 @@ function buildAuditIssues(raw: string, source: string): AuditIssue[] {
       context,
       start: -1,
       end: -1,
+    }
+    if (isNoOpIssue(draft)) {
+      logOw('audit.drop', { original: original.slice(0, 40), reason: 'no-op' })
+      continue
     }
     const located = locateInText(source, draft)
     if (!located) {

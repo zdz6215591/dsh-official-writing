@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { DOC_TYPE_LABEL, normalizeDocType } from '../shared/docTypes.ts'
 import { asRecord, parseJsonObject } from '../shared/json.ts'
-import { coerceAuditType, relocateIssues } from '../shared/locate.ts'
+import { coerceAuditType, isNoOpIssue, relocateIssues } from '../shared/locate.ts'
 import type { AuditIssue, DocumentContext, RewriteMode } from '../shared/types.ts'
 import { isEncrypted } from '../shared/types.ts'
 import { AuditMarks, auditPluginKey } from './extensions/AuditMarks.ts'
@@ -41,26 +41,38 @@ function parseIssues(raw: string, text: string): AuditIssue[] {
   if (!Array.isArray(list)) return []
   return relocateIssues(
     text,
-    list.map((item, i) => {
-      const row = asRecord(item) || {}
-      return {
-        id: typeof row.id === 'string' ? row.id : `audit-${i}`,
-        type: coerceAuditType(
-          row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
-          typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
-        ),
-        original: typeof row.original === 'string' ? row.original : '',
-        suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
-        reason: typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
-        context: typeof row.context === 'string' ? row.context : '',
-        start: -1,
-        end: -1,
-      }
-    }),
+    list
+      .map((item, i) => {
+        const row = asRecord(item) || {}
+        return {
+          id: typeof row.id === 'string' ? row.id : `audit-${i}`,
+          type: coerceAuditType(
+            row.type === 'typo' || row.type === 'insert' ? row.type : 'polish',
+            typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
+          ),
+          original: typeof row.original === 'string' ? row.original : '',
+          suggestion: typeof row.suggestion === 'string' ? row.suggestion : '',
+          reason: typeof row.reason === 'string' ? row.reason : typeof row.explanation === 'string' ? row.explanation : '',
+          context: typeof row.context === 'string' ? row.context : '',
+          start: -1,
+          end: -1,
+        }
+      })
+      .filter((item) => !isNoOpIssue(item)),
   )
 }
 
-export function Workbench({ ctx, onClose, doc }: { ctx: Context; onClose: () => void; doc: WritingDoc }) {
+export function Workbench({
+  ctx,
+  onClose,
+  doc,
+  restyleToken = 0,
+}: {
+  ctx: Context
+  onClose: () => void
+  doc: WritingDoc
+  restyleToken?: number
+}) {
   const lib = useMemo(() => getLibrary(), [doc.id])
   const [docCtx, setDocCtx] = useState<DocumentContext | null>(doc.docCtx)
   const [showWizard, setShowWizard] = useState(!doc.wizardDone)
@@ -165,6 +177,10 @@ export function Workbench({ ctx, onClose, doc }: { ctx: Context; onClose: () => 
   useEffect(() => {
     if (!ghostOn) editor?.commands.clearGhost()
   }, [ghostOn, editor])
+
+  useEffect(() => {
+    if (restyleToken) setShowWizard(true)
+  }, [restyleToken])
 
   useEffect(() => {
     const sync = () => applySidebarLeft()

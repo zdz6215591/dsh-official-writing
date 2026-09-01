@@ -2,7 +2,7 @@ import { Component, createElement, useEffect, useState, type ErrorInfo, type Rea
 import type { Context } from '@deepseek-ai/cordis'
 import { WritingNav } from './components/WritingNav.tsx'
 import { Workbench } from './Workbench.tsx'
-import { getLibrary, openDoc, startNewDoc, subscribeLibrary } from './library.ts'
+import { deleteDoc, getLibrary, openDoc, startNewDoc, subscribeLibrary } from './library.ts'
 import { mountWritingRemote } from './remote.ts'
 import { STYLES } from './styles.ts'
 
@@ -86,6 +86,7 @@ export function apply(ctx: Context) {
   function Overlay() {
     const [opened, setOpened] = useState(open)
     const [lib, setLib] = useState(getLibrary())
+    const [restyle, setRestyle] = useState<{ id: string; n: number } | null>(null)
     useEffect(() => {
       const onEvent = (event: Event) => setOpened(Boolean((event as CustomEvent).detail))
       window.addEventListener(EVENT, onEvent)
@@ -98,6 +99,10 @@ export function apply(ctx: Context) {
         unsubLib()
       }
     }, [])
+    useEffect(() => {
+      document.body.classList.toggle('ow-writing-open', opened)
+      return () => document.body.classList.remove('ow-writing-open')
+    }, [opened])
     const active = lib.docs.find((item) => item.id === lib.activeId) || null
     return createElement(
       'div',
@@ -113,6 +118,20 @@ export function apply(ctx: Context) {
           startNewDoc()
           setOpen(true)
         },
+        onDelete: (id: string) => {
+          deleteDoc(id)
+          const next = getLibrary()
+          if (!next.activeId || next.activeId === id) setOpen(false)
+        },
+        onRestyle: (id: string) => {
+          openDoc(id)
+          setOpen(true)
+          setRestyle({ id, n: Date.now() })
+        },
+        onCloseWriting: () => {
+          openDoc(null)
+          setOpen(false)
+        },
       }),
       opened && active
         ? createElement(
@@ -125,6 +144,7 @@ export function apply(ctx: Context) {
                 key: active.id,
                 ctx,
                 doc: active,
+                restyleToken: restyle?.id === active.id ? restyle.n : 0,
                 onClose: () => setOpen(false),
               }),
             ),

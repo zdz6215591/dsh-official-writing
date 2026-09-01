@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { normalizeDocType } from '../shared/docTypes.ts'
 import { parseJsonObject } from '../shared/json.ts'
-import { applyIssueToText, coerceAuditType, locateInText, relocateIssues, tightenIssueSpan, visualMarkRange } from '../shared/locate.ts'
+import { applyIssueToText, coerceAuditType, isNoOpIssue, locateInText, relocateIssues, tightenIssueSpan, visualMarkRange } from '../shared/locate.ts'
 import { isUnsupportedEffort, pickOffEffort, resolveEffort, streamAttempts } from '../shared/effort.ts'
 import { autocompleteSystem, cleanModelText, extractGhostFromReasoning, styleGuide } from '../shared/prompts.ts'
 import { isLocalRoute } from '../shared/local.ts'
@@ -155,6 +155,25 @@ test('relocateIssues drops vanished originals', () => {
   ])
   assert.equal(kept.length, 1)
   assert.equal(kept[0]!.id, '1')
+})
+
+test('isNoOpIssue drops empty or identical suggestions', () => {
+  assert.equal(
+    isNoOpIssue({
+      type: 'typo',
+      original: '优选手握项目资源、产业线索的专家授课',
+      suggestion: '',
+    }),
+    true,
+  )
+  assert.equal(
+    isNoOpIssue({
+      type: 'polish',
+      original: '请认真贯彻执行',
+      suggestion: '请认真抓好落实',
+    }),
+    false,
+  )
 })
 
 test('coerceAuditType demotes spoken-register typos to polish', () => {

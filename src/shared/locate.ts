@@ -149,3 +149,14 @@ export function coerceAuditType(type: AuditType, reason: string): AuditType {
   }
   return type
 }
+
+export function isNoOpIssue(issue: IssueLike): boolean {
+  if (issue.type === 'insert') return !(issue.suggestion || '').trim()
+  const original = (issue.original || '').replace(/\s+/g, '')
+  const suggestion = (issue.suggestion || '').replace(/\s+/g, '')
+  if (!original) return true
+  if (!suggestion) return true
+  if (original === suggestion) return true
+  const tight = tightenIssueSpan(issue)
+  return !!(tight.original && tight.suggestion && tight.original.replace(/\s+/g, '') === tight.suggestion.replace(/\s+/g, ''))
+}
