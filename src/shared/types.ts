@@ -22,11 +22,14 @@ export interface AuditIssue {
   original: string
   suggestion: string
   reason: string
-  /** 原文中原封不动存在的连续片段，用于实时定位。 */
+  /** 原文中原封不动存在的连续片段，仅在校核当时定位一次。 */
   context: string
-  /** 仅作参考的估算偏移，定位以 context / original 实时查找为准。 */
+  /** 校核当时的纯文本偏移，之后不再用来搜索。 */
   start: number
   end: number
+  /** 钉死的 ProseMirror 坐标。改字后只做 mapping，禁止再 indexOf。 */
+  from?: number
+  to?: number
 }
 
 export interface DocumentContext {

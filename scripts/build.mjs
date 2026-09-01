@@ -16,6 +16,7 @@ await build({
     'typert.host': 'src/typert.host.ts',
     'typert.remote-client': 'src/typert.remote-client.ts',
     'tests/shared.test': 'src/tests/shared.test.ts',
+    'tests/marks.test': 'src/tests/marks.test.ts',
   },
   outdir: 'lib',
   bundle: true,

@@ -5,11 +5,11 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { DOC_TYPE_LABEL, normalizeDocType } from '../shared/docTypes.ts'
 import { asRecord, parseJsonObject } from '../shared/json.ts'
-import { coerceAuditType, locateInText, relocateIssues } from '../shared/locate.ts'
+import { coerceAuditType, relocateIssues } from '../shared/locate.ts'
 import type { AuditIssue, DocumentContext, RewriteMode } from '../shared/types.ts'
 import { isEncrypted } from '../shared/types.ts'
 import { AuditMarks, auditPluginKey } from './extensions/AuditMarks.ts'
-import { countDocChars, getDocPlainText } from './extensions/docText.ts'
+import { countDocChars, getDocPlainText, pinIssuesToDoc } from './extensions/docText.ts'
 import { GhostText } from './extensions/GhostText.ts'
 import { RewriteMark } from './extensions/RewriteMark.ts'
 import { AnnotationSidebar, focusIssueInDoc } from './components/AnnotationSidebar.tsx'
@@ -110,41 +110,37 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
     },
     onCreate: ({ editor: ed }) => {
       setCharCount(countDocChars(ed.getText()))
-      const { text } = getDocPlainText(ed.state.doc)
-      setIssues((prev) => (prev.length ? relocateIssues(text, prev) : prev))
+      if (!initial.issues.length) return
+      const pinned = pinIssuesToDoc(ed.state.doc, initial.issues)
+      setIssues(pinned)
+      ed.commands.setAuditIssues(pinned)
     },
     onUpdate: ({ editor: ed }) => {
       htmlRef.current = ed.getHTML()
       setCharCount(countDocChars(ed.getText()))
-      const { text } = getDocPlainText(ed.state.doc)
-      setIssues((prev) => {
-        if (!prev.length) return prev
-        const next = relocateIssues(text, prev)
-        if (
-          next.length === prev.length &&
-          next.every(
-            (item, i) => item.id === prev[i]?.id && item.start === prev[i]?.start && item.end === prev[i]?.end,
-          )
-        ) {
-          return prev
-        }
-        return next
-      })
     },
     onTransaction: ({ editor: ed, transaction }) => {
       const accepted = transaction.getMeta('ow-accept-ghost') as { from: number; to: number } | undefined
       if (accepted) {
         queueMicrotask(() => ed.commands.markApplied(`ghost-${Date.now()}`, accepted.from, accepted.to))
       }
-      const nextId = auditPluginKey.getState(ed.state)?.activeId ?? null
+      const st = auditPluginKey.getState(ed.state)
+      const nextId = st?.activeId ?? null
       setActiveId((prev) => (prev === nextId ? prev : nextId))
+      if (transaction.docChanged && st) {
+        const live = st.issues
+        setIssues((prev) => {
+          if (
+            prev.length === live.length &&
+            prev.every((item, i) => item.id === live[i]?.id && item.from === live[i]?.from && item.to === live[i]?.to)
+          ) {
+            return prev
+          }
+          return live
+        })
+      }
     },
   })
-
-  useEffect(() => {
-    if (!editor) return
-    editor.commands.setAuditIssues(issues)
-  }, [editor, issues])
 
   const encrypted = isEncrypted(docCtx)
   useGhostAutocomplete(ctx, editor, !showWizard && ghostOn, docCtx, routing, localReady, (msg) =>
@@ -273,7 +269,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
           effort: depth === 'deep' ? routing.auditEffort : '',
         })
         const live = getDocPlainText(editor.state.doc).text
-        const list = relocateIssues(live, parseIssues(raw, live))
+        const list = pinIssuesToDoc(editor.state.doc, parseIssues(raw, live))
         console.info('[dsh-official-writing] audit.live', { chars: live.replace(/\s/g, '').length, kept: list.length, originals: list.map((item) => item.original) })
         setIssues(list)
         editor.commands.setAuditIssues(list)
@@ -290,33 +286,19 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
 
   const acceptIssue = (issue: AuditIssue) => {
     if (!editor) return
-    const { text } = getDocPlainText(editor.state.doc)
-    if (!locateInText(text, issue)) {
-      showToast('定位不到原文，未改动', 'error')
-      return
-    }
     const ok = editor.commands.applySuggestion(issue)
     if (!ok) {
       showToast('定位不到原文，未改动', 'error')
       return
     }
-    const nextText = getDocPlainText(editor.state.doc).text
-    const rest = relocateIssues(
-      nextText,
-      issues.filter((item) => item.id !== issue.id),
-    )
-    setIssues(rest)
-    editor.commands.setAuditIssues(rest)
+    setIssues(auditPluginKey.getState(editor.state)?.issues || [])
     showToast('已采纳', 'success')
   }
 
   const onRewriteReplaced = (from: number, to: number) => {
-    editor?.commands.markApplied(`rw-${Date.now()}`, from, to)
-    if (editor) {
-      const rest = relocateIssues(getDocPlainText(editor.state.doc).text, issues)
-      setIssues(rest)
-      editor.commands.setAuditIssues(rest)
-    }
+    if (!editor) return
+    editor.commands.markApplied(`rw-${Date.now()}`, from, to)
+    setIssues(auditPluginKey.getState(editor.state)?.issues || [])
     showToast('已替换', 'success')
   }
 
@@ -432,13 +414,12 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
             }}
             onAccept={acceptIssue}
             onDismiss={(id) => {
-              const rest = issues.filter((i) => i.id !== id)
-              setIssues(rest)
-              editor?.commands.setAuditIssues(rest)
+              editor?.commands.removeAuditIssue(id)
+              setIssues((prev) => prev.filter((item) => item.id !== id))
             }}
             onDismissAll={() => {
-              setIssues([])
               editor?.commands.clearAuditIssues()
+              setIssues([])
             }}
             onFocusIssue={(id) => {
               const issue = issues.find((i) => i.id === id)

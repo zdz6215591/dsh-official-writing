@@ -2,8 +2,8 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { AuditIssue } from '../../shared/types.ts'
-import { locateInText, tightenIssueSpan, visualMarkRange } from '../../shared/locate.ts'
-import { getDocPlainText, offsetsToRange } from './docText.ts'
+import { tightenIssueSpan } from '../../shared/locate.ts'
+import { mapPinnedIssue, markSliceValid, pinIssuesToDoc } from './docText.ts'
 
 export type AppliedHighlight = { id: string; from: number; to: number }
 export type AuditPluginState = {
@@ -20,6 +20,7 @@ declare module '@tiptap/core' {
       setAuditIssues: (issues: AuditIssue[]) => ReturnType
       setActiveIssue: (id: string | null) => ReturnType
       clearAuditIssues: () => ReturnType
+      removeAuditIssue: (id: string) => ReturnType
       applySuggestion: (issue: AuditIssue) => ReturnType
       markApplied: (id: string, from: number, to: number) => ReturnType
       dismissApplied: (id: string) => ReturnType
@@ -27,26 +28,29 @@ declare module '@tiptap/core' {
   }
 }
 
+function liveIssue(state: AuditPluginState | undefined, issue: AuditIssue): AuditIssue {
+  return state?.issues.find((item) => item.id === issue.id) || issue
+}
+
+function markStillValid(doc: { content: { size: number }; textBetween: Function }, issue: AuditIssue): boolean {
+  return markSliceValid(doc, issue)
+}
+
 function buildDecorations(doc: any, state: AuditPluginState): DecorationSet {
   const decos: ReturnType<typeof Decoration.inline>[] = []
-  const { text, map } = getDocPlainText(doc)
-  for (const issue of state.issues) {
-    const loc = visualMarkRange(text, issue)
-    if (!loc) continue
-    const range = offsetsToRange(map, loc.start, loc.end, doc.content.size)
-    if (!range) continue
+  state.issues.forEach((issue, index) => {
+    if (!markStillValid(doc, issue)) return
     const cls =
       issue.type === 'typo' ? 'ow-audit-typo' : issue.type === 'insert' ? 'ow-audit-insert' : 'ow-audit-polish'
     const active = state.activeId === issue.id ? ' ow-audit-active' : ''
-    const index = state.issues.indexOf(issue) + 1
     decos.push(
-      Decoration.inline(range.from, range.to, {
+      Decoration.inline(issue.from!, issue.to!, {
         class: `${cls}${active}`,
         'data-issue-id': issue.id,
-        'data-issue-n': String(index),
+        'data-issue-n': String(index + 1),
       }),
     )
-  }
+  })
   for (const applied of state.applied) {
     if (applied.from < applied.to && applied.to <= doc.content.size) {
       decos.push(
@@ -66,8 +70,9 @@ export const AuditMarks = Extension.create({
     return {
       setAuditIssues:
         (issues: AuditIssue[]) =>
-        ({ tr, dispatch }) => {
-          if (dispatch) dispatch(tr.setMeta(auditPluginKey, { type: 'setIssues', issues }))
+        ({ state, tr, dispatch }) => {
+          const pinned = pinIssuesToDoc(state.doc, issues)
+          if (dispatch) dispatch(tr.setMeta(auditPluginKey, { type: 'setIssues', issues: pinned }))
           return true
         },
       setActiveIssue:
@@ -82,31 +87,36 @@ export const AuditMarks = Extension.create({
           if (dispatch) dispatch(tr.setMeta(auditPluginKey, { type: 'clear' }))
           return true
         },
+      removeAuditIssue:
+        (id: string) =>
+        ({ tr, dispatch }) => {
+          if (dispatch) dispatch(tr.setMeta(auditPluginKey, { type: 'remove', id }))
+          return true
+        },
       applySuggestion:
         (issue: AuditIssue) =>
         ({ state, tr, dispatch }) => {
-          const { text, map } = getDocPlainText(state.doc)
-          const loc = visualMarkRange(text, issue)
-          if (!loc) return false
-          const range = offsetsToRange(map, loc.start, loc.end, state.doc.content.size)
-          if (!range) return false
+          const live = liveIssue(auditPluginKey.getState(state), issue)
+          if (!markStillValid(state.doc, live)) return false
+          const from = live.from!
+          const to = live.to!
           const replacement =
-            issue.type === 'insert' ? issue.suggestion : String(tightenIssueSpan(issue).suggestion ?? issue.suggestion)
-          if (issue.type === 'insert') {
-            tr.insertText(replacement, range.to)
+            live.type === 'insert' ? live.suggestion : String(tightenIssueSpan(live).suggestion ?? live.suggestion)
+          if (live.type === 'insert') {
+            tr.insertText(replacement, to)
             tr.setMeta(auditPluginKey, {
               type: 'applied',
-              issueId: issue.id,
-              from: range.to,
-              to: range.to + replacement.length,
+              issueId: live.id,
+              from: to,
+              to: to + replacement.length,
             })
           } else {
-            tr.insertText(replacement, range.from, range.to)
+            tr.insertText(replacement, from, to)
             tr.setMeta(auditPluginKey, {
               type: 'applied',
-              issueId: issue.id,
-              from: range.from,
-              to: range.from + replacement.length,
+              issueId: live.id,
+              from,
+              to: from + replacement.length,
             })
           }
           if (dispatch) dispatch(tr)
@@ -148,7 +158,13 @@ export const AuditMarks = Extension.create({
               if (meta.type === 'setIssues') next = { ...next, issues: meta.issues || [], activeId: null }
               else if (meta.type === 'setActive') next = { ...next, activeId: meta.id ?? null }
               else if (meta.type === 'clear') next = { issues: [], activeId: null, applied: next.applied }
-              else if (meta.type === 'applied' && meta.issueId != null && meta.from != null && meta.to != null) {
+              else if (meta.type === 'remove' && meta.id) {
+                next = {
+                  ...next,
+                  issues: next.issues.filter((item) => item.id !== meta.id),
+                  activeId: next.activeId === meta.id ? null : next.activeId,
+                }
+              } else if (meta.type === 'applied' && meta.issueId != null && meta.from != null && meta.to != null) {
                 next = {
                   ...next,
                   issues: next.issues.filter((item) => item.id !== meta.issueId),
@@ -161,12 +177,11 @@ export const AuditMarks = Extension.create({
             }
             if (tr.docChanged) {
               const mapped = tr.mapping
-              const { text } = getDocPlainText(tr.doc)
               next = {
                 ...next,
                 issues: next.issues.flatMap((issue) => {
-                  const range = locateInText(text, issue)
-                  return range ? [{ ...issue, start: range.start, end: range.end }] : []
+                  const pinned = mapPinnedIssue(issue, mapped, tr.doc.content.size)
+                  return pinned && markStillValid(tr.doc, pinned) ? [pinned] : []
                 }),
                 applied: next.applied
                   .map((item) => ({

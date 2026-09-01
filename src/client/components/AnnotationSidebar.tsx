@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { AuditIssue } from '../../shared/types.ts'
-import { locateInText, tightenIssueSpan } from '../../shared/locate.ts'
-import { getDocPlainText, offsetsToRange } from '../extensions/docText.ts'
+import { tightenIssueSpan } from '../../shared/locate.ts'
 
 const TYPE_LABEL: Record<string, string> = {
   typo: '错别字',
@@ -151,13 +150,10 @@ export function focusIssueInDoc(
   issue: AuditIssue,
   docScrollRef: React.RefObject<HTMLDivElement | null>,
 ) {
-  const { text, map } = getDocPlainText(editor.state.doc)
-  const loc = locateInText(text, issue)
-  if (!loc) return
-  const range = offsetsToRange(map, loc.start, loc.end, editor.state.doc.content.size)
-  if (!range) return
+  const from = typeof issue.from === 'number' ? issue.from : -1
+  if (from < 1) return
   try {
-    const coords = editor.view.coordsAtPos(range.from)
+    const coords = editor.view.coordsAtPos(from)
     const docEl = docScrollRef.current
     if (!docEl) return
     const docRect = docEl.getBoundingClientRect()
