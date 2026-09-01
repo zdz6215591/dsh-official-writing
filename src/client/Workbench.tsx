@@ -10,6 +10,7 @@ import type { AuditIssue, DocumentContext, RewriteMode } from '../shared/types.t
 import { isEncrypted } from '../shared/types.ts'
 import { AuditMarks, auditPluginKey } from './extensions/AuditMarks.ts'
 import { countDocChars, getDocPlainText, pinIssuesToDoc } from './extensions/docText.ts'
+import { DocumentTitle } from './extensions/DocumentTitle.ts'
 import { GhostText } from './extensions/GhostText.ts'
 import { RewriteMark } from './extensions/RewriteMark.ts'
 import { AnnotationSidebar, focusIssueInDoc } from './components/AnnotationSidebar.tsx'
@@ -21,8 +22,8 @@ import { Toast, type ToastState } from './components/Toast.tsx'
 import { WelcomeWizard } from './components/WelcomeWizard.tsx'
 import { useGhostAutocomplete } from './hooks/useGhostAutocomplete.ts'
 import { fetchCatalog, runStreamingJob } from './remote.ts'
+import { EMPTY_HTML, getLibrary, patchLibrary, writeDoc, type WritingDoc } from './library.ts'
 import { applySidebarLeft } from './sidebar.ts'
-import { clearState, loadState, saveState } from './storage.ts'
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -59,19 +60,20 @@ function parseIssues(raw: string, text: string): AuditIssue[] {
   )
 }
 
-export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void }) {
-  const initial = useMemo(() => loadState(), [])
-  const [docCtx, setDocCtx] = useState<DocumentContext | null>(initial.docCtx)
-  const [showWizard, setShowWizard] = useState(!initial.wizardDone)
+export function Workbench({ ctx, onClose, doc }: { ctx: Context; onClose: () => void; doc: WritingDoc }) {
+  const lib = useMemo(() => getLibrary(), [doc.id])
+  const [docCtx, setDocCtx] = useState<DocumentContext | null>(doc.docCtx)
+  const [showWizard, setShowWizard] = useState(!doc.wizardDone)
   const [showModels, setShowModels] = useState(false)
-  const [issues, setIssues] = useState<AuditIssue[]>(initial.issues)
+  const [issues, setIssues] = useState<AuditIssue[]>(doc.issues)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [auditing, setAuditing] = useState(false)
   const [toast, setToast] = useState<ToastState>(null)
   const [charCount, setCharCount] = useState(0)
-  const [ghostOn, setGhostOn] = useState(initial.ghostOn)
-  const [deepOn, setDeepOn] = useState(initial.deepOn)
-  const [routing, setRouting] = useState(initial.routing)
+  const [ghostOn, setGhostOn] = useState(lib.ghostAuto)
+  const [ghostForce, setGhostForce] = useState(0)
+  const [deepOn, setDeepOn] = useState(lib.deepOn)
+  const [routing, setRouting] = useState(lib.routing)
   const [localReady, setLocalReady] = useState(false)
   const [rewrite, setRewrite] = useState<{
     open: boolean
@@ -87,7 +89,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
   const stageRef = useRef<HTMLDivElement>(null)
   const toastId = useRef(0)
   const persistTimer = useRef(0)
-  const htmlRef = useRef(initial.html)
+  const htmlRef = useRef(doc.html)
 
   const showToast = useCallback((message: string, type: 'info' | 'success' | 'error' = 'info') => {
     toastId.current += 1
@@ -99,19 +101,25 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
     shouldRerenderOnTransaction: false,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Placeholder.configure({ placeholder: '光标停在段末约 5 秒后联想续写…' }),
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === 'heading') return '标题'
+          return ghostOn ? '光标停在段末约 5 秒后联想续写…' : '段末双击空格触发联想…'
+        },
+      }),
+      DocumentTitle,
       GhostText,
       AuditMarks,
       RewriteMark,
     ],
-    content: initial.html,
+    content: doc.html,
     editorProps: {
       attributes: { class: 'ow-doc-editor', spellcheck: 'false' },
     },
     onCreate: ({ editor: ed }) => {
       setCharCount(countDocChars(ed.getText()))
-      if (!initial.issues.length) return
-      const pinned = pinIssuesToDoc(ed.state.doc, initial.issues)
+      if (!doc.issues.length) return
+      const pinned = pinIssuesToDoc(ed.state.doc, doc.issues)
       setIssues(pinned)
       ed.commands.setAuditIssues(pinned)
     },
@@ -143,8 +151,15 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
   })
 
   const encrypted = isEncrypted(docCtx)
-  useGhostAutocomplete(ctx, editor, !showWizard && ghostOn, docCtx, routing, localReady, (msg) =>
-    showToast(msg, 'error'),
+  useGhostAutocomplete(
+    ctx,
+    editor,
+    !showWizard && ghostOn,
+    docCtx,
+    routing,
+    localReady,
+    (msg) => showToast(msg, 'error'),
+    ghostForce,
   )
 
   useEffect(() => {
@@ -214,18 +229,19 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
   useEffect(() => {
     window.clearTimeout(persistTimer.current)
     persistTimer.current = window.setTimeout(() => {
-      saveState({
+      writeDoc({
+        id: doc.id,
+        title: docCtx?.title || doc.title || '未命名公文',
         html: htmlRef.current,
         issues,
         docCtx,
         wizardDone: !showWizard && Boolean(docCtx),
-        ghostOn,
-        deepOn,
-        routing,
+        updatedAt: Date.now(),
       })
+      patchLibrary({ ghostAuto: ghostOn, deepOn, routing })
     }, 200)
     return () => window.clearTimeout(persistTimer.current)
-  }, [issues, docCtx, showWizard, ghostOn, deepOn, routing, charCount])
+  }, [doc.id, doc.title, issues, docCtx, showWizard, ghostOn, deepOn, routing, charCount])
 
   const seedTitle = useCallback(
     (ctxDoc: DocumentContext) => {
@@ -346,6 +362,7 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
       <FloatTools
         ghostOn={ghostOn}
         onGhostChange={setGhostOn}
+        onGhostManual={() => setGhostForce((n) => n + 1)}
         deepOn={deepOn}
         onDeepChange={setDeepOn}
         auditing={auditing}
@@ -460,9 +477,8 @@ export function Workbench({ ctx, onClose }: { ctx: Context; onClose: () => void 
                 type="button"
                 className="ow-btn primary"
                 onClick={() => {
-                  clearState()
-                  htmlRef.current = '<h1></h1><p></p>'
-                  editor?.commands.setContent('<h1></h1><p></p>')
+                  htmlRef.current = EMPTY_HTML
+                  editor?.commands.setContent(EMPTY_HTML)
                   editor?.commands.clearAuditIssues()
                   setIssues([])
                   setDocCtx(null)

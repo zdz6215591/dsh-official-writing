@@ -13,6 +13,7 @@ function defaultPos(elW: number, elH: number): Pos {
 export function FloatTools({
   ghostOn,
   onGhostChange,
+  onGhostManual,
   deepOn,
   onDeepChange,
   auditing,
@@ -22,6 +23,7 @@ export function FloatTools({
 }: {
   ghostOn: boolean
   onGhostChange: (on: boolean) => void
+  onGhostManual: () => void
   deepOn: boolean
   onDeepChange: (on: boolean) => void
   auditing: boolean
@@ -110,11 +112,26 @@ export function FloatTools({
         修改文体
       </button>
       <span className="ow-float-tools-sep" aria-hidden />
-      <label className={`ow-tool-chip ow-toggle-chip ${ghostOn ? 'on' : ''}`} title="智能联想（始终不使用深度思考）">
-        <input type="checkbox" checked={ghostOn} onChange={(e) => onGhostChange(e.target.checked)} />
-        <span className="ow-toggle-track" aria-hidden />
-        <span className="ow-tool-chip-label">联想</span>
-      </label>
+      <div className={`ow-audit-combo ${ghostOn ? 'deep' : ''}`} title={ghostOn ? '自动联想：段末停笔约 5 秒' : '手动联想：在可触发处双击空格'}>
+        <button
+          type="button"
+          className={`ow-audit-combo-depth ${ghostOn ? 'on' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onGhostChange(!ghostOn)
+          }}
+        >
+          <span className="ow-toggle-track mini" aria-hidden />
+          自动
+        </button>
+        <button
+          type="button"
+          className="ow-audit-combo-run"
+          onClick={onGhostManual}
+        >
+          联想
+        </button>
+      </div>
       <div className={`ow-audit-combo ${deepOn ? 'deep' : ''}`} title={deepOn ? '深度校验（开思考）' : '快速校验（关思考）'}>
         <button
           type="button"

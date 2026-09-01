@@ -85,6 +85,8 @@ export function RewritePanel({
   const abortRef = useRef<AbortController | null>(null)
   const popRef = useRef<HTMLDivElement>(null)
   const selectedRef = useRef(selectedText)
+  const dragRef = useRef<{ ox: number; oy: number; sl: number; st: number } | null>(null)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
 
   const updateBubblePos = useCallback(() => {
     if (!editor || !open) return
@@ -112,6 +114,7 @@ export function RewritePanel({
     setPhase('pick')
     setFrom(initialFrom)
     setTo(initialTo)
+    setDragOffset({ x: 0, y: 0 })
     selectedRef.current = selectedText
     editor.commands.setRewriteMark(initialFrom, initialTo)
     return () => {
@@ -236,10 +239,42 @@ export function RewritePanel({
         ? 'ow-rewrite-bubble ow-rewrite-bubble-result'
         : 'ow-rewrite-bubble ow-rewrite-bubble-pick'
 
+  const onDragHandle = (e: React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    dragRef.current = { ox: e.clientX, oy: e.clientY, sl: dragOffset.x, st: dragOffset.y }
+  }
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    setDragOffset({
+      x: dragRef.current.sl + e.clientX - dragRef.current.ox,
+      y: dragRef.current.st + e.clientY - dragRef.current.oy,
+    })
+  }
+  const onDragEnd = () => {
+    dragRef.current = null
+  }
+
   return (
-    <div className={bubbleClass} ref={popRef} style={{ top: bubblePos.top, left: bubblePos.left }} onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      className={bubbleClass}
+      ref={popRef}
+      style={{ top: bubblePos.top + dragOffset.y, left: bubblePos.left + dragOffset.x }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       {phase === 'loading' && (
         <div className="ow-rewrite-bubble-loading">
+          <span
+            className="ow-rewrite-drag"
+            title="拖动"
+            onPointerDown={onDragHandle}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragEnd}
+            onPointerCancel={onDragEnd}
+          >
+            ⠿
+          </span>
           <span className="ow-rewrite-bubble-dots" aria-hidden>
             <i />
             <i />
@@ -250,6 +285,19 @@ export function RewritePanel({
       )}
       {phase === 'done' && (
         <div className="ow-rewrite-bubble-body">
+          <div className="ow-rewrite-pop-head">
+            <span
+              className="ow-rewrite-drag"
+              title="拖动"
+              onPointerDown={onDragHandle}
+              onPointerMove={onDragMove}
+              onPointerUp={onDragEnd}
+              onPointerCancel={onDragEnd}
+            >
+              ⠿
+            </span>
+            <strong>改写结果</strong>
+          </div>
           <div className="ow-rewrite-bubble-text">{result}</div>
           <div className="ow-rewrite-bubble-actions">
             <button type="button" className="ow-btn ghost sm" onClick={ignore}>
@@ -273,6 +321,16 @@ export function RewritePanel({
       {(phase === 'pick' || phase === 'error') && (
         <div className="ow-rewrite-bubble-body">
           <div className="ow-rewrite-pop-head">
+            <span
+              className="ow-rewrite-drag"
+              title="拖动"
+              onPointerDown={onDragHandle}
+              onPointerMove={onDragMove}
+              onPointerUp={onDragEnd}
+              onPointerCancel={onDragEnd}
+            >
+              ⠿
+            </span>
             <strong>改写</strong>
             <button type="button" className="ow-icon-btn" onClick={ignore} aria-label="关闭">
               ×

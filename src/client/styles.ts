@@ -45,9 +45,8 @@ export const STYLES = `
 .ow-root .ProseMirror p{margin:0 0 1.05em;text-indent:2em;text-align:justify}
 .ow-root .ProseMirror h1{text-indent:0;text-align:center;font-family:var(--ow-font-title);font-size:28px;font-weight:400;line-height:1.55;letter-spacing:.12em;margin:.2em 0 1.6em}
 .ow-root .ProseMirror h2,.ow-root .ProseMirror h3{text-indent:0;font-weight:600;margin:1.1em 0 .55em}
-.ow-root .ProseMirror p.is-empty{position:relative}
-.ow-root .ProseMirror p.is-empty::before{content:attr(data-placeholder);position:absolute;left:2em;top:0;color:var(--ow-faint);pointer-events:none;height:0;font-family:var(--ow-font-ui);font-size:.9rem}
-.ow-root .ProseMirror h1.is-empty::before,.ow-root .ProseMirror h2.is-empty::before,.ow-root .ProseMirror h3.is-empty::before{left:0;text-align:inherit}
+.ow-root .ProseMirror p.is-empty::before,.ow-root .ProseMirror h1.is-empty::before,.ow-root .ProseMirror h2.is-empty::before,.ow-root .ProseMirror h3.is-empty::before{content:attr(data-placeholder);float:left;height:0;color:var(--ow-faint);pointer-events:none;font-family:var(--ow-font-ui);font-size:.9rem}
+.ow-root .ProseMirror h1.is-empty::before{float:none;display:block;text-align:center;width:100%}
 .ow-root .ProseMirror p:has([data-ghost])::before{content:none !important}
 .ow-ghost-text{color:rgba(0,0,0,.28);pointer-events:none;user-select:none}
 .ow-ghost-loading{display:inline-flex;gap:3px;align-items:center;margin-left:1px;pointer-events:none;height:1em}
@@ -120,6 +119,8 @@ export const STYLES = `
 .ow-rewrite-bubble-text{font-family:var(--ow-font-body);font-size:.88rem;line-height:1.65;max-height:160px;overflow:auto;white-space:pre-wrap}
 .ow-rewrite-bubble-actions{display:flex;justify-content:flex-end;gap:.35rem}
 .ow-rewrite-pop-head{display:flex;align-items:center;gap:.5rem}
+.ow-rewrite-drag{cursor:grab;color:var(--ow-faint);padding:0 .15rem;user-select:none}
+.ow-rewrite-drag:active{cursor:grabbing}
 .ow-rewrite-pop-head strong{flex:1;font-size:.85rem}
 .ow-rewrite-modes{display:flex;flex-wrap:wrap;gap:.3rem}
 .ow-rewrite-modes button{border:1px solid rgba(0,0,0,.12);background:#fafafa;border-radius:999px;padding:.3rem .65rem;font-size:.74rem;cursor:pointer}
@@ -164,6 +165,24 @@ export const STYLES = `
 .ow-confirm{width:min(420px,100%);background:#fff;border-radius:16px;padding:1.2rem 1.3rem;border:1px solid var(--ow-line)}
 .ow-confirm h3{margin:0 0 .4rem}
 .ow-confirm p{margin:0;color:var(--ow-muted);font-size:.86rem;line-height:1.55}
+#ow-writing-nav{display:block}
+.ow-nav-group{display:flex;flex-direction:column;margin:0 0 4px}
+.ow-nav-folder{display:flex;align-items:center;height:34px;padding:0 8px 0 6px;border-radius:8px;cursor:pointer;gap:0;color:var(--dsw-alias-label-primary,inherit)}
+.ow-nav-folder:hover,.ow-nav-folder.active{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
+.ow-nav-slot{width:22px;height:22px;display:grid;place-items:center;flex:none}
+.ow-nav-chevron{display:none}
+.ow-nav-folder:hover .ow-nav-icon,.ow-nav-folder.expanded .ow-nav-icon{display:none}
+.ow-nav-folder:hover .ow-nav-chevron,.ow-nav-folder.expanded .ow-nav-chevron{display:grid}
+.ow-nav-arrow{transition:transform .16s}
+.ow-nav-arrow.open{transform:rotate(90deg)}
+.ow-nav-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:22px}
+.ow-nav-actions{display:flex;opacity:0;flex:none}
+.ow-nav-folder:hover .ow-nav-actions,.ow-nav-folder.expanded .ow-nav-actions{opacity:1}
+.ow-nav-plus{border:none;background:transparent;width:22px;height:22px;border-radius:6px;color:inherit;display:grid;place-items:center;cursor:pointer}
+.ow-nav-plus:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.08))}
+.ow-nav-doc{display:flex;align-items:center;height:34px;margin:0;padding:0 10px 0 28px;border:none;border-radius:8px;background:transparent;color:inherit;cursor:pointer;text-align:left;width:100%;font:inherit}
+.ow-nav-doc:hover,.ow-nav-doc.selected{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
+.ow-nav-doc-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 .ow-overlay-host{position:relative;z-index:70;pointer-events:auto}
 .ow-crash{position:fixed;inset:auto 24px 24px auto;z-index:90;max-width:360px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid rgba(153,27,27,.25);color:#991b1b;box-shadow:0 8px 28px rgba(0,0,0,.12);pointer-events:auto}
 .ow-crash strong{display:block;margin-bottom:6px}

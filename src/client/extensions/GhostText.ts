@@ -79,6 +79,16 @@ export const GhostText = Extension.create({
             ])
           },
           handleKeyDown(view, event) {
+            if (event.key === ' ' && !event.repeat) {
+              const { empty, from } = view.state.selection
+              if (empty && from > 1) {
+                const prev = view.state.doc.textBetween(from - 1, from, '')
+                if (prev === ' ') {
+                  view.dispatch(view.state.tr.setMeta('ow-ghost-manual', true).setMeta('addToHistory', false))
+                  return true
+                }
+              }
+            }
             const ghost = ghostPluginKey.getState(view.state)
             if (!ghost) return false
             if (ghost.loading) {

@@ -1,22 +1,10 @@
 import { Component, createElement, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
+import { WritingNav } from './components/WritingNav.tsx'
 import { Workbench } from './Workbench.tsx'
+import { getLibrary, openDoc, startNewDoc, subscribeLibrary } from './library.ts'
 import { mountWritingRemote } from './remote.ts'
 import { STYLES } from './styles.ts'
-
-function PenIcon({ size = 16 }: { size?: number }) {
-  return createElement(
-    'svg',
-    { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true },
-    createElement('path', {
-      d: 'M4 2.5h5.2L13 6.3V13a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13V4A1.5 1.5 0 0 1 4.5 2.5H4z',
-      stroke: 'currentColor',
-      strokeWidth: '1.25',
-    }),
-    createElement('path', { d: 'M9 2.6V6h3.3', stroke: 'currentColor', strokeWidth: '1.25' }),
-    createElement('path', { d: 'M6.2 11.6 10.4 7.4l1.2 1.2-4.2 4.2H6.2v-1.2z', fill: 'currentColor' }),
-  )
-}
 
 class OverlayGuard extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null as string | null }
@@ -65,7 +53,6 @@ export function apply(ctx: Context) {
     window.dispatchEvent(new CustomEvent(EVENT, { detail: next }))
     notify()
   }
-  const toggle = () => setOpen(!open)
 
   ctx.effect(() => {
     let disposed = false
@@ -98,49 +85,51 @@ export function apply(ctx: Context) {
 
   function Overlay() {
     const [opened, setOpened] = useState(open)
+    const [lib, setLib] = useState(getLibrary())
     useEffect(() => {
       const onEvent = (event: Event) => setOpened(Boolean((event as CustomEvent).detail))
       window.addEventListener(EVENT, onEvent)
       const unsub = subscribe(() => setOpened(open))
+      const unsubLib = subscribeLibrary(() => setLib(getLibrary()))
       setOpened(open)
       return () => {
         window.removeEventListener(EVENT, onEvent)
         unsub()
+        unsubLib()
       }
     }, [])
-    if (!opened) return null
+    const active = lib.docs.find((item) => item.id === lib.activeId) || null
     return createElement(
       'div',
-      { className: 'ow-overlay-host', style: { pointerEvents: 'auto' } },
-      createElement(
-        OverlayGuard,
-        null,
-        createElement(Workbench, {
-          ctx,
-          onClose: () => setOpen(false),
-        }),
-      ),
-    )
-  }
-
-  function FooterEntry({ wide }: { wide?: boolean }) {
-    const [pressed, setPressed] = useState(open)
-    useEffect(() => subscribe(() => setPressed(open)), [])
-    return createElement(
-      'button',
-      {
-        type: 'button',
-        className: `ow-settings-twin${wide ? '' : ' rail'}${pressed ? ' on' : ''}`,
-        title: '写作助手',
-        'aria-label': '写作助手',
-        'aria-pressed': pressed,
-        onClick: (event: { stopPropagation: () => void }) => {
-          event.stopPropagation()
-          toggle()
+      null,
+      createElement(WritingNav, {
+        docs: lib.docs,
+        activeId: opened ? lib.activeId : null,
+        onOpen: (id: string) => {
+          openDoc(id)
+          setOpen(true)
         },
-      },
-      createElement(PenIcon, { size: wide ? 16 : 18 }),
-      wide ? createElement('span', null, '写作助手') : null,
+        onCreate: () => {
+          startNewDoc()
+          setOpen(true)
+        },
+      }),
+      opened && active
+        ? createElement(
+            OverlayGuard,
+            null,
+            createElement(
+              'div',
+              { className: 'ow-overlay-host', style: { pointerEvents: 'auto' } },
+              createElement(Workbench, {
+                key: active.id,
+                ctx,
+                doc: active,
+                onClose: () => setOpen(false),
+              }),
+            ),
+          )
+        : null,
     )
   }
 
@@ -151,15 +140,4 @@ export function apply(ctx: Context) {
     ),
   )
 
-  slots.inject('sidebar.footer.action', () =>
-    slots.register(
-      {
-        name: 'sidebar.footer.action',
-        id: 'official-writing-entry',
-        order: 20,
-        label: '写作助手',
-      },
-      FooterEntry,
-    ),
-  )
 }

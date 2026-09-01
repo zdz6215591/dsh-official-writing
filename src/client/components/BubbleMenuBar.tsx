@@ -27,22 +27,25 @@ export function BubbleMenuBar({
 
   useEffect(() => {
     if (!editor) return
-    const update = () => {
-      if (hidden) {
-        setCoords(null)
-        setSel(null)
+    let pointerDown = false
+    let timer = 0
+    const hide = () => {
+      setCoords(null)
+      setSel(null)
+    }
+    const show = () => {
+      if (hidden || pointerDown) {
+        hide()
         return
       }
       const { from, to, empty } = editor.state.selection
       if (empty) {
-        setCoords(null)
-        setSel(null)
+        hide()
         return
       }
       const text = editor.state.doc.textBetween(from, to, '\n')
       if (!text.trim()) {
-        setCoords(null)
-        setSel(null)
+        hide()
         return
       }
       const start = editor.view.coordsAtPos(from)
@@ -50,11 +53,34 @@ export function BubbleMenuBar({
       setCoords({ top: Math.min(start.top, end.top) - 8, left: (start.left + end.left) / 2 })
       setSel({ text, from, to })
     }
+    const onPointerDown = () => {
+      pointerDown = true
+      window.clearTimeout(timer)
+      hide()
+    }
+    const onPointerUp = () => {
+      pointerDown = false
+      window.clearTimeout(timer)
+      timer = window.setTimeout(show, 180)
+    }
+    const update = () => {
+      if (pointerDown) {
+        hide()
+        return
+      }
+      window.clearTimeout(timer)
+      timer = window.setTimeout(show, 180)
+    }
     editor.on('selectionUpdate', update)
-    window.addEventListener('scroll', update, true)
+    window.addEventListener('pointerdown', onPointerDown, true)
+    window.addEventListener('pointerup', onPointerUp, true)
+    window.addEventListener('scroll', hide, true)
     return () => {
       editor.off('selectionUpdate', update)
-      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('pointerdown', onPointerDown, true)
+      window.removeEventListener('pointerup', onPointerUp, true)
+      window.removeEventListener('scroll', hide, true)
+      window.clearTimeout(timer)
     }
   }, [editor, hidden])
 

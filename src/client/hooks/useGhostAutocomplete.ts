@@ -38,31 +38,30 @@ function shouldTrigger(editor: Editor) {
 export function useGhostAutocomplete(
   ctx: Context,
   editor: Editor | null,
-  enabled: boolean,
+  auto: boolean,
   docCtx: DocumentContext | null,
   routing: TaskRouting,
   localReady: boolean,
   onError?: (message: string) => void,
+  forceToken = 0,
 ) {
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<number | null>(null)
   const seqRef = useRef(0)
+  const runningRef = useRef(false)
   const onErrorRef = useRef(onError)
   const docCtxRef = useRef(docCtx)
   const routingRef = useRef(routing)
   const localReadyRef = useRef(localReady)
+  const autoRef = useRef(auto)
   onErrorRef.current = onError
   docCtxRef.current = docCtx
   routingRef.current = routing
   localReadyRef.current = localReady
+  autoRef.current = auto
 
   useEffect(() => {
-    if (!editor || !enabled) {
-      if (timerRef.current) window.clearTimeout(timerRef.current)
-      abortRef.current?.abort()
-      editor?.commands.clearGhost()
-      return
-    }
+    if (!editor) return
 
     const clearTimer = () => {
       if (timerRef.current) {
@@ -72,9 +71,12 @@ export function useGhostAutocomplete(
     }
 
     const ghostPosRef = { current: -1 }
-    const cancel = () => {
-      abortRef.current?.abort()
-      abortRef.current = null
+    const cancel = (abortJob = true) => {
+      if (abortJob) {
+        abortRef.current?.abort()
+        abortRef.current = null
+        runningRef.current = false
+      }
       seqRef.current += 1
       ghostPosRef.current = -1
       clearTimer()
@@ -86,10 +88,12 @@ export function useGhostAutocomplete(
         onErrorRef.current?.('加密模式无可用本地模型，已禁用智能联想')
         return
       }
+      if (runningRef.current) return
       const seq = ++seqRef.current
       abortRef.current?.abort()
       const ac = new AbortController()
       abortRef.current = ac
+      runningRef.current = true
       const safe = Math.max(0, Math.min(pos, editor.state.doc.content.size))
       ghostPosRef.current = safe
       editor.commands.setGhost({ pos: safe, text: '', loading: true })
@@ -112,7 +116,11 @@ export function useGhostAutocomplete(
             onDelta: (chunk) => {
               if (seqRef.current !== seq) return
               acc += chunk
-              editor.commands.setGhost({ pos: ghostPosRef.current < 0 ? safe : ghostPosRef.current, text: acc, loading: false })
+              editor.commands.setGhost({
+                pos: ghostPosRef.current < 0 ? safe : ghostPosRef.current,
+                text: acc,
+                loading: false,
+              })
             },
           },
           ac.signal,
@@ -128,16 +136,23 @@ export function useGhostAutocomplete(
         if (seqRef.current !== seq || error?.name === 'AbortError') return
         editor.commands.clearGhost()
         onErrorRef.current?.(error?.message || '智能联想失败')
+      } finally {
+        if (abortRef.current === ac) {
+          abortRef.current = null
+          runningRef.current = false
+        }
       }
     }
 
     const schedule = () => {
+      if (!autoRef.current) return
       if (!shouldTrigger(editor) || !enoughContext(editor)) return
-      if (abortRef.current && !abortRef.current.signal.aborted) return
+      if (runningRef.current) return
       if (timerRef.current) return
       const pos = editor.state.selection.from
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null
+        if (!autoRef.current) return
         if (!shouldTrigger(editor)) return
         if (Math.abs(editor.state.selection.from - pos) > 1) return
         void run(editor.state.selection.from)
@@ -147,24 +162,39 @@ export function useGhostAutocomplete(
     const onTransaction = ({ transaction }: { transaction: any }) => {
       if (transaction.getMeta(ghostPluginKey) !== undefined) return
       if (transaction.getMeta('ow-accept-ghost')) return
-      if (transaction.docChanged && transaction.steps?.length) {
-        cancel()
+      if (transaction.getMeta('ow-ghost-manual')) {
+        clearTimer()
+        void run(editor.state.selection.from)
+        return
+      }
+      const userEdit = transaction.docChanged && transaction.steps?.length
+      if (userEdit) {
+        if (runningRef.current) cancel(true)
+        else {
+          clearTimer()
+          editor.commands.clearGhost()
+        }
         schedule()
         return
       }
       if (!transaction.selectionSet || transaction.docChanged) return
-      if (ghostPosRef.current < 0) {
-        schedule()
-        return
+      if (ghostPosRef.current >= 0 && Math.abs(editor.state.selection.from - ghostPosRef.current) > 2) {
+        if (!runningRef.current) editor.commands.clearGhost()
       }
-      if (Math.abs(editor.state.selection.from - ghostPosRef.current) > 2) cancel()
+      schedule()
     }
 
     editor.on('transaction', onTransaction)
-    schedule()
+    if (auto) schedule()
     return () => {
       editor.off('transaction', onTransaction)
-      cancel()
+      clearTimer()
     }
-  }, [ctx, editor, enabled])
+  }, [ctx, editor, auto])
+
+  useEffect(() => {
+    if (!editor || !forceToken) return
+    if (!shouldTrigger(editor) || !enoughContext(editor)) return
+    editor.view.dispatch(editor.state.tr.setMeta('ow-ghost-manual', true))
+  }, [editor, forceToken])
 }
