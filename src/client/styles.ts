@@ -165,8 +165,9 @@ export const STYLES = `
 .ow-confirm{width:min(420px,100%);background:#fff;border-radius:16px;padding:1.2rem 1.3rem;border:1px solid var(--ow-line)}
 .ow-confirm h3{margin:0 0 .4rem}
 .ow-confirm p{margin:0;color:var(--ow-muted);font-size:.86rem;line-height:1.55}
-#ow-writing-nav{display:block}
+#ow-writing-nav{display:block;margin-bottom:4px}
 .ow-nav-group{display:flex;flex-direction:column}
+.ow-nav-group>*+*{margin-top:2px}
 .ow-nav-folder,.ow-nav-doc{box-sizing:border-box;cursor:pointer;user-select:none;color:var(--dsw-alias-label-primary,inherit);border-radius:8px;align-items:center;gap:6px;padding:0 8px;display:flex}
 .ow-nav-folder{height:34px}
 .ow-nav-folder:hover,.ow-nav-folder.menu-open{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}

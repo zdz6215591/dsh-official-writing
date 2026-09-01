@@ -27,6 +27,43 @@ export function getDocPlainText(doc: { descendants: Function; content: { size: n
   return { text, map }
 }
 
+/** Caret in `doc.textBetween(0, size, '\n')` → ProseMirror position. */
+export function plainCaretToPos(
+  doc: { descendants: Function; content: { size: number } },
+  caret: number,
+): number {
+  let i = 0
+  let found = 1
+  let first = true
+  let done = false
+  doc.descendants((node: { isBlock?: boolean; isTextblock?: boolean; isText?: boolean; text?: string }, pos: number) => {
+    if (done) return false
+    if (node.isBlock && node.isTextblock) {
+      if (!first) {
+        if (caret <= i) {
+          found = pos
+          done = true
+          return false
+        }
+        i += 1
+      }
+      first = false
+    }
+    if (node.isText && node.text) {
+      const len = node.text.length
+      if (caret <= i + len) {
+        found = pos + (caret - i)
+        done = true
+        return false
+      }
+      i += len
+    }
+    return true
+  })
+  if (!done) found = Math.max(1, Math.min(doc.content.size, found))
+  return found
+}
+
 export function offsetsToRange(
   map: number[],
   start: number,
@@ -61,7 +98,7 @@ export function markSliceValid(
   if (!slice) return false
   const original = issue.original || ''
   const expected = String(tightenIssueSpan(issue).original || original)
-  return slice === expected || slice === original || original.includes(slice) || expected.includes(slice)
+  return slice === expected || slice === original
 }
 
 /** Locate once at audit time. Later edits must map `from`/`to`, never search again. */
@@ -69,7 +106,7 @@ export function pinIssuesToDoc(
   doc: { descendants: Function; content: { size: number }; textBetween: Function },
   issues: AuditIssue[],
 ): AuditIssue[] {
-  const { text, map } = getDocPlainText(doc)
+  const { text } = getDocPlainText(doc)
   const next: AuditIssue[] = []
   for (const issue of issues) {
     if (typeof issue.from === 'number' && typeof issue.to === 'number' && markSliceValid(doc, issue)) {
@@ -78,9 +115,12 @@ export function pinIssuesToDoc(
     }
     const loc = visualMarkRange(text, issue)
     if (!loc) continue
-    const range = offsetsToRange(map, loc.start, loc.end, doc.content.size)
-    if (!range) continue
-    next.push({ ...issue, start: loc.start, end: loc.end, from: range.from, to: range.to })
+    const from = plainCaretToPos(doc, loc.start)
+    const to = plainCaretToPos(doc, loc.end)
+    if (from < 1 || to > doc.content.size || from >= to) continue
+    const probe = { ...issue, from, to }
+    if (!markSliceValid(doc, probe)) continue
+    next.push({ ...issue, start: loc.start, end: loc.end, from, to })
   }
   return next
 }

@@ -3,7 +3,7 @@ import test from 'node:test'
 import { Schema } from '@tiptap/pm/model'
 import { EditorState, TextSelection } from '@tiptap/pm/state'
 import { splitBlock } from '@tiptap/pm/commands'
-import { mapPinnedIssue, pinIssuesToDoc } from '../client/extensions/docText.ts'
+import { mapPinnedIssue, markSliceValid, pinIssuesToDoc, plainCaretToPos } from '../client/extensions/docText.ts'
 import type { AuditIssue } from '../shared/types.ts'
 
 const schema = new Schema({
@@ -45,6 +45,28 @@ function posOf(doc: ReturnType<typeof paragraphDoc>, needle: string) {
   })
   return found
 }
+
+test('plainCaretToPos pins 手握 not 专', () => {
+  const source = '优选手握项目资源、产业线索的专家授课，实现教学与实践的资源互通。'
+  const doc = paragraphDoc(source)
+  const text = source
+  const start = text.indexOf('手握')
+  const from = plainCaretToPos(doc, start)
+  const to = plainCaretToPos(doc, start + 2)
+  assert.equal(doc.textBetween(from, to, '\n', ''), '手握')
+  const zhuan = text.indexOf('专')
+  assert.notEqual(from, plainCaretToPos(doc, zhuan))
+})
+
+test('markSliceValid rejects a one-character slice of a longer original', () => {
+  const source = '优选手握项目资源、产业线索的专家授课'
+  const doc = paragraphDoc(source)
+  const zhuan = posOf(doc, '专')
+  assert.equal(
+    markSliceValid(doc, issue({ id: 'bad', original: '手握项目资源、产业线索的专家授课', suggestion: '掌握', from: zhuan, to: zhuan + 1 })),
+    false,
+  )
+})
 
 test('split paragraph maps the pinned mark, does not jump to 关于', () => {
   const source = '关于促进科技成果转化。定为4月3日上午9点于综合楼召开。'
