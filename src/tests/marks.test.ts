@@ -3,12 +3,20 @@ import test from 'node:test'
 import { Schema } from '@tiptap/pm/model'
 import { EditorState, TextSelection } from '@tiptap/pm/state'
 import { splitBlock } from '@tiptap/pm/commands'
-import { mapPinnedIssue, markSliceValid, pinIssuesToDoc, plainCaretToPos } from '../client/extensions/docText.ts'
+import { mapPinnedIssue, markSliceValid, pinIssuesToDoc } from '../client/extensions/docText.ts'
 import type { AuditIssue } from '../shared/types.ts'
 
 const schema = new Schema({
   nodes: {
     doc: { content: 'block+' },
+    heading: {
+      content: 'inline*',
+      group: 'block',
+      attrs: { level: { default: 1 } },
+      toDOM() {
+        return ['h1', 0]
+      },
+    },
     paragraph: {
       content: 'inline*',
       group: 'block',
@@ -46,16 +54,24 @@ function posOf(doc: ReturnType<typeof paragraphDoc>, needle: string) {
   return found
 }
 
-test('plainCaretToPos pins 手握 not 专', () => {
-  const source = '优选手握项目资源、产业线索的专家授课，实现教学与实践的资源互通。'
-  const doc = paragraphDoc(source)
-  const text = source
-  const start = text.indexOf('手握')
-  const from = plainCaretToPos(doc, start)
-  const to = plainCaretToPos(doc, start + 2)
-  assert.equal(doc.textBetween(from, to, '\n', ''), '手握')
-  const zhuan = text.indexOf('专')
-  assert.notEqual(from, plainCaretToPos(doc, zhuan))
+test('pinIssuesToDoc keeps a heading plus body original', () => {
+  const title = '关于人才工作及培训的意见建议'
+  const body = '优选手握项目资源、产业线索的专家授课，实现教学与实践的资源互通。'
+  const doc = schema.node('doc', null, [
+    schema.node('heading', { level: 1 }, [schema.text(title)]),
+    schema.node('paragraph', null, [schema.text(body)]),
+  ])
+  const pinned = pinIssuesToDoc(doc, [
+    issue({
+      id: 'shouwo',
+      original: '优选手握项目资源、产业线索的专家授课',
+      suggestion: '建议邀请掌握项目资源、产业线索的专家授课',
+    }),
+  ])
+  assert.equal(pinned.length, 1)
+  const slice = doc.textBetween(pinned[0]!.from!, pinned[0]!.to!, '\n', '')
+  assert.ok(slice.length >= 2)
+  assert.ok('优选手握项目资源、产业线索的专家授课'.includes(slice))
 })
 
 test('markSliceValid rejects a one-character slice of a longer original', () => {

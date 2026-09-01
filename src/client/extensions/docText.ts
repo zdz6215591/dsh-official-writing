@@ -1,5 +1,5 @@
 import type { AuditIssue } from '../../shared/types.ts'
-import { tightenIssueSpan, visualMarkRange } from '../../shared/locate.ts'
+import { locateInText, tightenIssueSpan, visualMarkRange } from '../../shared/locate.ts'
 
 export function getDocPlainText(doc: { descendants: Function; content: { size: number } }): {
   text: string
@@ -25,43 +25,6 @@ export function getDocPlainText(doc: { descendants: Function; content: { size: n
     return true
   })
   return { text, map }
-}
-
-/** Caret in `doc.textBetween(0, size, '\n')` → ProseMirror position. */
-export function plainCaretToPos(
-  doc: { descendants: Function; content: { size: number } },
-  caret: number,
-): number {
-  let i = 0
-  let found = 1
-  let first = true
-  let done = false
-  doc.descendants((node: { isBlock?: boolean; isTextblock?: boolean; isText?: boolean; text?: string }, pos: number) => {
-    if (done) return false
-    if (node.isBlock && node.isTextblock) {
-      if (!first) {
-        if (caret <= i) {
-          found = pos
-          done = true
-          return false
-        }
-        i += 1
-      }
-      first = false
-    }
-    if (node.isText && node.text) {
-      const len = node.text.length
-      if (caret <= i + len) {
-        found = pos + (caret - i)
-        done = true
-        return false
-      }
-      i += len
-    }
-    return true
-  })
-  if (!done) found = Math.max(1, Math.min(doc.content.size, found))
-  return found
 }
 
 export function offsetsToRange(
@@ -106,21 +69,26 @@ export function pinIssuesToDoc(
   doc: { descendants: Function; content: { size: number }; textBetween: Function },
   issues: AuditIssue[],
 ): AuditIssue[] {
-  const { text } = getDocPlainText(doc)
+  const { text, map } = getDocPlainText(doc)
   const next: AuditIssue[] = []
   for (const issue of issues) {
     if (typeof issue.from === 'number' && typeof issue.to === 'number' && markSliceValid(doc, issue)) {
       next.push(issue)
       continue
     }
-    const loc = visualMarkRange(text, issue)
-    if (!loc) continue
-    const from = plainCaretToPos(doc, loc.start)
-    const to = plainCaretToPos(doc, loc.end)
-    if (from < 1 || to > doc.content.size || from >= to) continue
-    const probe = { ...issue, from, to }
-    if (!markSliceValid(doc, probe)) continue
-    next.push({ ...issue, start: loc.start, end: loc.end, from, to })
+    const full = locateInText(text, issue)
+    if (!full) continue
+    const fullRange = offsetsToRange(map, full.start, full.end, doc.content.size)
+    if (!fullRange) continue
+    const visual = visualMarkRange(text, issue)
+    if (visual) {
+      const tight = offsetsToRange(map, visual.start, visual.end, doc.content.size)
+      if (tight && markSliceValid(doc, { ...issue, from: tight.from, to: tight.to })) {
+        next.push({ ...issue, start: visual.start, end: visual.end, from: tight.from, to: tight.to })
+        continue
+      }
+    }
+    next.push({ ...issue, start: full.start, end: full.end, from: fullRange.from, to: fullRange.to })
   }
   return next
 }

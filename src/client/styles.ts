@@ -168,8 +168,9 @@ export const STYLES = `
 #ow-writing-nav{display:block;margin-bottom:4px}
 .ow-nav-group{display:flex;flex-direction:column}
 .ow-nav-group>*+*{margin-top:2px}
-.ow-nav-folder,.ow-nav-doc{box-sizing:border-box;cursor:pointer;user-select:none;color:var(--dsw-alias-label-primary,inherit);border-radius:8px;align-items:center;gap:6px;padding:0 8px;display:flex}
-.ow-nav-folder{height:34px}
+.ow-nav-folder,.ow-nav-doc{box-sizing:border-box;cursor:pointer;user-select:none;color:var(--dsw-alias-label-primary,inherit);border-radius:8px;align-items:center;gap:6px;padding:0 8px;display:flex;flex:none;overflow:hidden;min-height:0;max-height:34px}
+.ow-nav-folder{height:34px;max-height:34px;background:transparent}
+.ow-nav-folder.contains-current,.ow-nav-folder.expanded{background:transparent}
 .ow-nav-folder:hover,.ow-nav-folder.menu-open{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
 .ow-nav-slot{width:16px;height:20px;color:var(--dsw-alias-label-tertiary,rgba(0,0,0,.45));flex:none;justify-content:center;align-items:center;display:inline-flex}
 .ow-nav-icon.active{color:var(--dsw-alias-state-business-primary,#3b82f6)}
@@ -183,7 +184,7 @@ export const STYLES = `
 .ow-nav-folder:hover .ow-nav-actions,.ow-nav-doc:hover .ow-nav-actions,.ow-nav-doc.menu-open .ow-nav-actions{display:inline-flex}
 .ow-nav-icon-btn{border:none;background:transparent;width:20px;height:20px;padding:0;border-radius:6px;color:var(--dsw-alias-label-tertiary,rgba(0,0,0,.45));display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .ow-nav-icon-btn:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.08));color:var(--dsw-alias-label-primary,inherit)}
-.ow-nav-doc{height:32px;gap:0;margin:0;border:none;background:transparent;width:100%;text-align:left;font:inherit}
+.ow-nav-doc{height:32px;max-height:32px;gap:0;margin:0;border:none;background:transparent;width:100%;text-align:left;font:inherit}
 .ow-nav-doc:hover,.ow-nav-doc.selected,.ow-nav-doc.menu-open{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
 .ow-nav-doc-title{flex:1;min-width:0;margin:0 6px 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:20px}
 .ow-nav-menu{position:fixed;z-index:120;min-width:148px;padding:6px;border-radius:10px;background:var(--dsw-alias-bg-elevated,#fff);border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,.08));box-shadow:0 8px 24px rgba(0,0,0,.12);display:flex;flex-direction:column}
