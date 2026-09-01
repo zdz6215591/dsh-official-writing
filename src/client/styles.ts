@@ -165,9 +165,9 @@ export const STYLES = `
 .ow-confirm{width:min(420px,100%);background:#fff;border-radius:16px;padding:1.2rem 1.3rem;border:1px solid var(--ow-line)}
 .ow-confirm h3{margin:0 0 .4rem}
 .ow-confirm p{margin:0;color:var(--ow-muted);font-size:.86rem;line-height:1.55}
-#ow-writing-nav{display:block;margin:0 0 4px;padding:0}
-.ow-nav-group{display:flex;flex-direction:column;gap:2px}
-.ow-nav-folder,.ow-nav-doc{box-sizing:border-box;cursor:pointer;user-select:none;color:var(--dsw-alias-label-primary,inherit);background:transparent;border-radius:8px;align-items:center;gap:6px;padding:0 8px;display:flex;flex:none;overflow:hidden;line-height:20px}
+#ow-writing-nav{display:block;margin-bottom:4px;width:100%;box-sizing:border-box}
+.ow-nav-group{display:flex;flex-direction:column;gap:2px;width:100%}
+.ow-nav-folder,.ow-nav-doc{box-sizing:border-box;width:100%;cursor:pointer;user-select:none;color:var(--dsw-alias-label-primary,inherit);background:transparent;border-radius:8px;align-items:center;gap:6px;padding:0 8px;display:flex;flex:none;overflow:hidden;line-height:20px}
 .ow-nav-folder{height:34px}
 .ow-nav-folder.contains-current,.ow-nav-folder.expanded{background:transparent}
 .ow-nav-folder:hover,.ow-nav-folder.menu-open{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}

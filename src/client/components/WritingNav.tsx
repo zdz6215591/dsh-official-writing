@@ -84,6 +84,13 @@ export function WritingNav({
       const list = tree?.parentElement
       if (!tree || !list || !node) return
       if (node.nextElementSibling !== tree) list.insertBefore(node, tree)
+      const cs = getComputedStyle(tree)
+      node.style.boxSizing = 'border-box'
+      node.style.width = '100%'
+      node.style.marginLeft = cs.marginLeft
+      node.style.marginRight = cs.marginRight
+      node.style.paddingLeft = cs.paddingLeft
+      node.style.paddingRight = cs.paddingRight
       setHost(node)
     }
     place()

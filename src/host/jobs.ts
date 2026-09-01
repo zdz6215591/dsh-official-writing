@@ -323,7 +323,8 @@ export async function runJob(
   const clock = withTimeout(job.abort.signal, timeoutMs)
   try {
     if (request.task === 'autocomplete') {
-      const before = request.textBefore || request.text || ''
+      const before = (request.textBefore || request.text || '').slice(-4000)
+      const after = (request.textAfter || '').slice(0, 2000)
       const system = autocompleteSystem({
         docType: request.docType,
         title: request.title,
@@ -335,7 +336,15 @@ export async function runJob(
           provider: route.provider,
           model: route.model,
           system,
-          messages: [userMessage(`只输出续写正文本身，不要思考过程。\n光标前上下文：\n${before.slice(-2400)}`)],
+          messages: [
+            userMessage(
+              [
+                '只输出续写正文本身，不要思考过程，不要重复已有文字。',
+                `光标前：\n${before}`,
+                after ? `光标后：\n${after}` : '光标后：（无）',
+              ].join('\n\n'),
+            ),
+          ],
           temperature: 0.2,
           maxTokens: 2048,
           signal: clock.signal,

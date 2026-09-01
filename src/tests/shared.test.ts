@@ -178,6 +178,7 @@ test('isNoOpIssue drops empty or identical suggestions', () => {
 
 test('coerceAuditType demotes spoken-register typos to polish', () => {
   assert.equal(coerceAuditType('typo', '口语化且不够正式'), 'polish')
+  assert.equal(coerceAuditType('typo', '规范写法应为“更好地”'), 'polish')
   assert.equal(coerceAuditType('typo', '错别字：把部写成布'), 'typo')
   assert.equal(coerceAuditType('insert', '缺时间'), 'insert')
 })
