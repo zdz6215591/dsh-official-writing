@@ -81,16 +81,9 @@ export function WritingNav({
     }
     const place = () => {
       const tree = findTree()
-      const list = tree?.parentElement
-      if (!tree || !list || !node) return
-      if (node.nextElementSibling !== tree) list.insertBefore(node, tree)
-      const cs = getComputedStyle(tree)
-      node.style.boxSizing = 'border-box'
-      node.style.width = '100%'
-      node.style.marginLeft = cs.marginLeft
-      node.style.marginRight = cs.marginRight
-      node.style.paddingLeft = cs.paddingLeft
-      node.style.paddingRight = cs.paddingRight
+      if (!tree || !node) return
+      if (tree.firstElementChild !== node) tree.insertBefore(node, tree.firstChild)
+      node.style.cssText = 'display:block;width:100%;margin:0 0 4px;padding:0;box-sizing:border-box'
       setHost(node)
     }
     place()
