@@ -165,11 +165,10 @@ export const STYLES = `
 .ow-confirm{width:min(420px,100%);background:#fff;border-radius:16px;padding:1.2rem 1.3rem;border:1px solid var(--ow-line)}
 .ow-confirm h3{margin:0 0 .4rem}
 .ow-confirm p{margin:0;color:var(--ow-muted);font-size:.86rem;line-height:1.55}
-#ow-writing-nav{display:block;margin-bottom:4px}
-.ow-nav-group{display:flex;flex-direction:column}
-.ow-nav-group>*+*{margin-top:2px}
-.ow-nav-folder,.ow-nav-doc{box-sizing:border-box;cursor:pointer;user-select:none;color:var(--dsw-alias-label-primary,inherit);border-radius:8px;align-items:center;gap:6px;padding:0 8px;display:flex;flex:none;overflow:hidden;min-height:0;max-height:34px}
-.ow-nav-folder{height:34px;max-height:34px;background:transparent}
+#ow-writing-nav{display:block;margin:0 0 4px;padding:0}
+.ow-nav-group{display:flex;flex-direction:column;gap:2px}
+.ow-nav-folder,.ow-nav-doc{box-sizing:border-box;cursor:pointer;user-select:none;color:var(--dsw-alias-label-primary,inherit);background:transparent;border-radius:8px;align-items:center;gap:6px;padding:0 8px;display:flex;flex:none;overflow:hidden;line-height:20px}
+.ow-nav-folder{height:34px}
 .ow-nav-folder.contains-current,.ow-nav-folder.expanded{background:transparent}
 .ow-nav-folder:hover,.ow-nav-folder.menu-open{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
 .ow-nav-slot{width:16px;height:20px;color:var(--dsw-alias-label-tertiary,rgba(0,0,0,.45));flex:none;justify-content:center;align-items:center;display:inline-flex}

@@ -71,9 +71,7 @@ export const AuditMarks = Extension.create({
       setAuditIssues:
         (issues: AuditIssue[]) =>
         ({ state, tr, dispatch }) => {
-          const pinned = issues.every((item) => typeof item.from === 'number' && typeof item.to === 'number')
-            ? issues
-            : pinIssuesToDoc(state.doc, issues)
+          const pinned = pinIssuesToDoc(state.doc, issues)
           if (dispatch) dispatch(tr.setMeta(auditPluginKey, { type: 'setIssues', issues: pinned }))
           return true
         },
@@ -98,7 +96,10 @@ export const AuditMarks = Extension.create({
       applySuggestion:
         (issue: AuditIssue) =>
         ({ state, tr, dispatch }) => {
-          const live = liveIssue(auditPluginKey.getState(state), issue)
+          let live = liveIssue(auditPluginKey.getState(state), issue)
+          if (!markStillValid(state.doc, live)) {
+            live = pinIssuesToDoc(state.doc, [issue])[0] || live
+          }
           if (!markStillValid(state.doc, live)) return false
           const from = live.from!
           const to = live.to!

@@ -81,8 +81,9 @@ export function WritingNav({
     }
     const place = () => {
       const tree = findTree()
-      if (!tree || !node) return
-      if (tree.firstElementChild !== node) tree.insertBefore(node, tree.firstChild)
+      const list = tree?.parentElement
+      if (!tree || !list || !node) return
+      if (node.nextElementSibling !== tree) list.insertBefore(node, tree)
       setHost(node)
     }
     place()

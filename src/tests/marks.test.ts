@@ -72,6 +72,7 @@ test('pinIssuesToDoc keeps a heading plus body original', () => {
   const slice = doc.textBetween(pinned[0]!.from!, pinned[0]!.to!, '\n', '')
   assert.ok(slice.length >= 2)
   assert.ok('优选手握项目资源、产业线索的专家授课'.includes(slice))
+  assert.notEqual(slice, '专')
 })
 
 test('markSliceValid rejects a one-character slice of a longer original', () => {

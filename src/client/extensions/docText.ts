@@ -1,5 +1,5 @@
 import type { AuditIssue } from '../../shared/types.ts'
-import { locateInText, tightenIssueSpan, visualMarkRange } from '../../shared/locate.ts'
+import { tightenIssueSpan } from '../../shared/locate.ts'
 
 export function getDocPlainText(doc: { descendants: Function; content: { size: number } }): {
   text: string
@@ -50,6 +50,31 @@ export function countDocChars(text: string): number {
   return text.replace(/\s/g, '').length
 }
 
+/** Find `needle` inside a single textblock. Never crosses a paragraph/heading boundary. */
+export function findNeedleInDoc(
+  doc: { descendants: Function; content: { size: number }; textBetween?: Function },
+  needle: string,
+  hintFrom?: number,
+): { from: number; to: number } | null {
+  if (!needle) return null
+  let best: { from: number; to: number; dist: number } | null = null
+  doc.descendants((node: { isTextblock?: boolean; textContent?: string }, pos: number) => {
+    if (!node.isTextblock) return true
+    const text = node.textContent || ''
+    let idx = text.indexOf(needle)
+    while (idx >= 0) {
+      const from = pos + 1 + idx
+      const to = from + needle.length
+      const dist = typeof hintFrom === 'number' ? Math.abs(from - hintFrom) : 0
+      if (!best || dist < best.dist) best = { from, to, dist }
+      if (typeof hintFrom !== 'number') break
+      idx = text.indexOf(needle, idx + 1)
+    }
+    return false
+  })
+  return best ? { from: best.from, to: best.to } : null
+}
+
 export function markSliceValid(
   doc: { textBetween: Function; content: { size: number } },
   issue: AuditIssue,
@@ -64,31 +89,42 @@ export function markSliceValid(
   return slice === expected || slice === original
 }
 
-/** Locate once at audit time. Later edits must map `from`/`to`, never search again. */
+function pinOne(
+  doc: { descendants: Function; content: { size: number }; textBetween: Function },
+  issue: AuditIssue,
+): AuditIssue | null {
+  if (issue.type === 'insert') {
+    const found = findNeedleInDoc(doc, issue.context || '')
+    if (!found) return null
+    return { ...issue, from: found.to, to: found.to }
+  }
+  const original = issue.original || ''
+  if (!original) return null
+  const full = findNeedleInDoc(doc, original)
+  if (!full) return null
+  const tight = tightenIssueSpan(issue)
+  const fragment = String(tight.original || '')
+  if (fragment && fragment !== original) {
+    const inner = original.indexOf(fragment)
+    if (inner >= 0) {
+      const from = full.from + inner
+      const to = from + fragment.length
+      const probe = { ...issue, from, to }
+      if (markSliceValid(doc, probe)) return { ...issue, from, to }
+    }
+  }
+  return { ...issue, from: full.from, to: full.to }
+}
+
+/** Locate once at audit time by real textblock strings. Later edits only map `from`/`to`. */
 export function pinIssuesToDoc(
   doc: { descendants: Function; content: { size: number }; textBetween: Function },
   issues: AuditIssue[],
 ): AuditIssue[] {
-  const { text, map } = getDocPlainText(doc)
   const next: AuditIssue[] = []
   for (const issue of issues) {
-    if (typeof issue.from === 'number' && typeof issue.to === 'number' && markSliceValid(doc, issue)) {
-      next.push(issue)
-      continue
-    }
-    const full = locateInText(text, issue)
-    if (!full) continue
-    const fullRange = offsetsToRange(map, full.start, full.end, doc.content.size)
-    if (!fullRange) continue
-    const visual = visualMarkRange(text, issue)
-    if (visual) {
-      const tight = offsetsToRange(map, visual.start, visual.end, doc.content.size)
-      if (tight && markSliceValid(doc, { ...issue, from: tight.from, to: tight.to })) {
-        next.push({ ...issue, start: visual.start, end: visual.end, from: tight.from, to: tight.to })
-        continue
-      }
-    }
-    next.push({ ...issue, start: full.start, end: full.end, from: fullRange.from, to: fullRange.to })
+    const pinned = pinOne(doc, { ...issue, from: undefined, to: undefined } as AuditIssue)
+    if (pinned) next.push(pinned)
   }
   return next
 }
