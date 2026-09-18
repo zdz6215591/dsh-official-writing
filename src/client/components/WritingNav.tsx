@@ -45,9 +45,53 @@ function TriangleIcon({ open }: { open: boolean }) {
   )
 }
 
-function findTree(): HTMLElement | null {
-  const trees = Array.from(document.querySelectorAll<HTMLElement>('[role="tree"]'))
-  return trees.find((el) => el.getBoundingClientRect().left < 420) || null
+function findTaskTree(): HTMLElement | null {
+  // 1. Check if sidebar has a tablist (e.g. dsh-im-connect's .ima-tabs or [role="tablist"])
+  const tablists = Array.from(document.querySelectorAll<HTMLElement>('[role="tablist"], .ima-tabs'))
+    .filter((el) => el.getBoundingClientRect().left < 420)
+
+  if (tablists.length > 0) {
+    for (const tablist of tablists) {
+      const activeTab = tablist.querySelector<HTMLElement>(
+        '[role="tab"][aria-selected="true"], [role="tab"].on, .ima-tab.on, [role="tab"][class*="active"]'
+      )
+      if (activeTab) {
+        const text = (activeTab.textContent || '').trim()
+        // If active tab is 频道 or Channel, official writing must not appear!
+        if (/频道|channel/i.test(text)) {
+          return null
+        }
+        // If there is an explicit task tab that is NOT the active one, return null
+        const allTabs = Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"], .ima-tab'))
+        const taskTab = allTabs.find((t) => /任务|task/i.test(t.textContent || ''))
+        if (taskTab && activeTab !== taskTab && taskTab.getAttribute('aria-selected') !== 'true' && !taskTab.classList.contains('on')) {
+          return null
+        }
+      }
+    }
+
+    // When dsh-im-connect is on 任务 tab, the task tree is wrapped inside .ima-official-tree
+    const officialContainer = document.querySelector<HTMLElement>('.ima-official-tree')
+    if (officialContainer) {
+      const tree = officialContainer.querySelector<HTMLElement>('[role="tree"]')
+      if (tree && tree.getBoundingClientRect().left < 420) {
+        return tree
+      }
+    }
+
+    // If tablist exists but officialContainer is not in DOM, we are in Channels or other tabs
+    return null
+  }
+
+  // 2. Default DSH without any tablist:
+  // Find trees in the sidebar area (left < 420), excluding channel trees
+  const trees = Array.from(document.querySelectorAll<HTMLElement>('[role="tree"]')).filter((el) => {
+    if (el.getBoundingClientRect().left >= 420) return false
+    if (el.closest('.ima-rail, .ima-native-tree, .dcu-wb, .dcu-wb-tree, [class*="channelRail"]')) return false
+    return true
+  })
+
+  return trees[0] || null
 }
 
 export function WritingNav({
@@ -80,19 +124,44 @@ export function WritingNav({
       node.id = 'ow-writing-nav'
     }
     const place = () => {
-      const tree = findTree()
-      if (!tree || !node) return
+      const tree = findTaskTree()
+      if (!tree || !node) {
+        if (node?.parentElement) {
+          node.remove()
+        }
+        setHost(null)
+        return
+      }
       if (tree.firstElementChild !== node) tree.insertBefore(node, tree.firstChild)
       node.style.cssText = 'display:block;width:100%;margin:0 0 4px;padding:0;box-sizing:border-box'
       setHost(node)
     }
     place()
     const mo = new MutationObserver(place)
-    mo.observe(document.body, { childList: true, subtree: true })
-    const timer = window.setInterval(place, 400)
+    mo.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-selected', 'class'],
+    })
+    const timer = window.setInterval(place, 300)
+
+    const onTabClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('[role="tab"], .ima-tab, [role="tablist"], .ima-tabs')) {
+        setTimeout(place, 0)
+        setTimeout(place, 60)
+      }
+    }
+    document.addEventListener('click', onTabClick, true)
+
     return () => {
       mo.disconnect()
       window.clearInterval(timer)
+      document.removeEventListener('click', onTabClick, true)
+      if (node?.parentElement) {
+        node.remove()
+      }
     }
   }, [])
 
