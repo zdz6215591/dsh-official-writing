@@ -1,6 +1,6 @@
 {
   "name": "dsh-official-writing",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "description": "机关公文写作助手 — DeepSeek Harness 双面插件：沉浸写作、智能联想、校核批注、选区改写。",
   "license": "MIT",
   "type": "module",
@@ -53,9 +53,9 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.1-rc.2"
+    "@deepseek-ai/cordis": ">=4.0.0",
+    "@deepseek-ai/dsh-llm": ">=0.1.0",
+    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0"
   },
   "dependencies": {
     "zod": "^4.4.3"
