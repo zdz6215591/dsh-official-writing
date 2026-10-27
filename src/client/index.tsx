@@ -1,10 +1,10 @@
 import { Component, createElement, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
-import { WritingNav } from './components/WritingNav.tsx'
 import { Workbench } from './Workbench.tsx'
-import { deleteDoc, getLibrary, openDoc, startNewDoc, subscribeLibrary } from './library.ts'
+import { getLibrary, openDoc, startNewDoc, subscribeLibrary } from './library.ts'
 import { mountWritingRemote } from './remote.ts'
 import { STYLES } from './styles.ts'
+import { setupOfficialWritingTab } from './tabs.ts'
 
 class OverlayGuard extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null as string | null }
@@ -54,6 +54,13 @@ export function apply(ctx: Context) {
     notify()
   }
 
+  let restyleState: { id: string; n: number } | null = null
+  const restyleListeners = new Set<() => void>()
+  const triggerRestyle = (id: string) => {
+    restyleState = { id, n: Date.now() }
+    for (const listener of restyleListeners) listener()
+  }
+
   ctx.effect(() => {
     let disposed = false
     let disposeRemote: (() => void) | undefined
@@ -61,6 +68,7 @@ export function apply(ctx: Context) {
     style.setAttribute('data-ow', '1')
     style.textContent = STYLES
     document.head.appendChild(style)
+
     const tryMount = () => {
       if (disposed || disposeRemote) return
       void mountWritingRemote(ctx).then((dispose) => {
@@ -74,82 +82,87 @@ export function apply(ctx: Context) {
     tryMount()
     const timer = window.setInterval(tryMount, 250)
     const stop = window.setTimeout(() => window.clearInterval(timer), 12_000)
+
+    const disposeTabs = setupOfficialWritingTab(ctx, {
+      onOpenWorkbench: (id: string) => {
+        openDoc(id)
+        setOpen(true)
+      },
+      onRestyleDoc: (id: string) => {
+        openDoc(id)
+        triggerRestyle(id)
+        setOpen(true)
+      },
+      isWorkbenchOpen: () => open,
+      onTabChange: (tab: string) => {
+        if (tab !== 'official-writing' && tab !== '公文写作') {
+          // 切换到任务或频道时，收起公文写作中央工作台，避免遮挡会话
+          setOpen(false)
+        } else {
+          // 切回公文写作时，若已有激活公文，恢复工作台
+          const currentLib = getLibrary()
+          if (currentLib.activeId) {
+            setOpen(true)
+          }
+        }
+      },
+    })
+
     return () => {
       disposed = true
       window.clearInterval(timer)
       window.clearTimeout(stop)
       disposeRemote?.()
+      disposeTabs()
       style.remove()
     }
   })
 
   function Overlay() {
     const [opened, setOpened] = useState(open)
-    const [lib, setLib] = useState(getLibrary())
-    const [restyle, setRestyle] = useState<{ id: string; n: number } | null>(null)
+    const [lib, setLib] = useState(() => getLibrary())
+    const [restyle, setRestyle] = useState<{ id: string; n: number } | null>(restyleState)
+
     useEffect(() => {
       const onEvent = (event: Event) => setOpened(Boolean((event as CustomEvent).detail))
       window.addEventListener(EVENT, onEvent)
       const unsub = subscribe(() => setOpened(open))
       const unsubLib = subscribeLibrary(() => setLib(getLibrary()))
+      const onRestyleChange = () => setRestyle(restyleState)
+      restyleListeners.add(onRestyleChange)
       setOpened(open)
+
       return () => {
         window.removeEventListener(EVENT, onEvent)
         unsub()
         unsubLib()
+        restyleListeners.delete(onRestyleChange)
       }
     }, [])
+
     useEffect(() => {
       document.body.classList.toggle('ow-writing-open', opened)
       return () => document.body.classList.remove('ow-writing-open')
     }, [opened])
+
     const active = lib.docs.find((item) => item.id === lib.activeId) || null
+
+    if (!opened || !active) return null
+
     return createElement(
-      'div',
+      OverlayGuard,
       null,
-      createElement(WritingNav, {
-        docs: lib.docs,
-        activeId: opened ? lib.activeId : null,
-        onOpen: (id: string) => {
-          openDoc(id)
-          setOpen(true)
-        },
-        onCreate: () => {
-          startNewDoc()
-          setOpen(true)
-        },
-        onDelete: (id: string) => {
-          deleteDoc(id)
-          const next = getLibrary()
-          if (!next.activeId || next.activeId === id) setOpen(false)
-        },
-        onRestyle: (id: string) => {
-          openDoc(id)
-          setOpen(true)
-          setRestyle({ id, n: Date.now() })
-        },
-        onCloseWriting: () => {
-          openDoc(null)
-          setOpen(false)
-        },
-      }),
-      opened && active
-        ? createElement(
-            OverlayGuard,
-            null,
-            createElement(
-              'div',
-              { className: 'ow-overlay-host', style: { pointerEvents: 'auto' } },
-              createElement(Workbench, {
-                key: active.id,
-                ctx,
-                doc: active,
-                restyleToken: restyle?.id === active.id ? restyle.n : 0,
-                onClose: () => setOpen(false),
-              }),
-            ),
-          )
-        : null,
+      createElement(
+        'div',
+        { className: 'ow-overlay-host', style: { pointerEvents: 'auto' } },
+        createElement(Workbench, {
+          key: active.id,
+          ctx,
+          doc: active,
+          restyleToken: restyle?.id === active.id ? restyle.n : 0,
+          onClose: () => setOpen(false),
+        }),
+      ),
     )
   }
 
@@ -159,5 +172,4 @@ export function apply(ctx: Context) {
       Overlay,
     ),
   )
-
 }
