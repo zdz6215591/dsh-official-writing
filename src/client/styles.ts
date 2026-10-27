@@ -7,7 +7,7 @@ export const STYLES = `
   --ow-font-ui:Inter,PingFang SC,Microsoft YaHei,system-ui,sans-serif;
   --ow-font-title:'STZhongsong','华文中宋','Noto Serif SC',serif;
   --ow-font-body:'Noto Serif SC','Source Han Serif SC','Songti SC','SimSun',serif;
-  position:fixed;top:0;right:0;bottom:0;left:var(--ow-sidebar-left,56px);z-index:70;display:flex;flex-direction:column;
+  position:fixed;top:0;right:0;bottom:0;left:var(--ow-sidebar-left,280px);z-index:70;display:flex;flex-direction:column;
   background:var(--ow-canvas);color:var(--ow-ink);font-family:var(--ow-font-ui);
   pointer-events:auto;
 }

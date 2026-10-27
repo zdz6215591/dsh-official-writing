@@ -189,17 +189,14 @@ export function Workbench({
     const observed = new Set<Element>()
     const ro = new ResizeObserver(sync)
     const attach = () => {
-      const settings = Array.from(document.querySelectorAll('button')).find((button) => {
-        const label = `${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`
-        return button.getAttribute('aria-haspopup') === 'dialog' && /设置|Settings/.test(label)
-      })
-      let el: HTMLElement | null = settings ?? null
-      while (el && el !== document.body) {
+      const targets = Array.from(
+        document.querySelectorAll('[class*="centerCol"], [class*="sidebarCol"], [class*="frame"], aside, nav'),
+      )
+      for (const el of targets) {
         if (!observed.has(el)) {
           ro.observe(el)
           observed.add(el)
         }
-        el = el.parentElement
       }
     }
     attach()
@@ -212,7 +209,7 @@ export function Workbench({
       subtree: true,
       attributeFilter: ['data-sidebar-collapsed', 'class', 'style'],
     })
-    const timer = window.setInterval(sync, 200)
+    const timer = window.setInterval(sync, 150)
     return () => {
       window.removeEventListener('resize', sync)
       ro.disconnect()
@@ -261,14 +258,27 @@ export function Workbench({
 
   const seedTitle = useCallback(
     (ctxDoc: DocumentContext) => {
-      if (!editor) return
       const t = (ctxDoc.title || '').trim()
       if (!t) return
-      const first = editor.state.doc.firstChild
-      const current = first?.textContent?.trim() || ''
-      if (!current) editor.commands.setContent(`<h1>${escapeHtml(t)}</h1><p></p>`)
+      const initialHtml = `<h1>${escapeHtml(t)}</h1><p></p>`
+      htmlRef.current = initialHtml
+      if (editor) {
+        editor.commands.setContent(initialHtml, { emitUpdate: true })
+        setTimeout(() => {
+          editor.commands.focus('end')
+        }, 50)
+      }
+      writeDoc({
+        id: doc.id,
+        title: t,
+        html: initialHtml,
+        issues: [],
+        docCtx: ctxDoc,
+        wizardDone: true,
+        updatedAt: Date.now(),
+      })
     },
-    [editor],
+    [editor, doc.id],
   )
 
   const runAudit = useCallback(
