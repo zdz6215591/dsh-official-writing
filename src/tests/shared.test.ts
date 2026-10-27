@@ -251,3 +251,11 @@ test('pickOffEffort prefers true off over low', () => {
   assert.deepEqual(noReasoning[0], {})
   assert.ok(noReasoning.some((item) => item.purpose === 'session-title'))
 })
+
+test('package.json engines.dsh satisfies dsh 0.1.x and 0.2.x runtimes', async () => {
+  const fs = await import('node:fs')
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+  assert.ok(pkg.engines?.dsh, 'engines.dsh must be specified to satisfy DSH compatibility admission')
+  assert.equal(pkg.engines.dsh, '>=0.1.0-0')
+})
+
