@@ -193,6 +193,14 @@ export const STYLES = `
 .ow-tab-btn{appearance:none;border:0;background:transparent;color:var(--dsw-alias-label-tertiary,#6e7681);padding:6px 0 8px;font-size:13px;font-weight:500;cursor:pointer;position:relative}
 .ow-tab-btn.on{color:var(--dsw-alias-label-primary,inherit);font-weight:600}
 .ow-tab-btn.on::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:currentColor;border-radius:2px}
+
+/* 将工作区/任务操作栏与顶部 Tab 栏合并为同一行 */
+[class*="sectionHeader"] [class*="sectionLabel"]{display:none !important}
+.ima-wrap,.ow-tab-wrap{position:relative !important}
+.ima-wrap .ima-tabs-wrap,.ima-wrap .ima-tabs,.ow-tab-wrap .ow-tabs-bar{margin-right:104px !important;width:auto !important}
+.ima-wrap [class*="sectionHeader"],.ow-tab-wrap [class*="sectionHeader"]{position:absolute !important;top:2px !important;right:var(--dsh-sidebar-inline-padding,12px) !important;height:32px !important;margin:0 !important;padding:0 !important;z-index:10 !important;background:transparent !important;display:flex !important;align-items:center !important;justify-content:flex-end !important}
+.ima-wrap [class*="sectionHeader"]:has([class*="searchExpanded"]),.ow-tab-wrap [class*="sectionHeader"]:has([class*="searchExpanded"]),.ima-wrap:has([class*="searchExpanded"]) [class*="sectionHeader"],.ow-tab-wrap:has([class*="searchExpanded"]) [class*="sectionHeader"]{left:0 !important;right:var(--dsh-sidebar-inline-padding,12px) !important;background:var(--dsw-specific-sidebar-fill,var(--dsw-alias-bg-base,#fff)) !important;z-index:50 !important;padding-left:4px !important}
+
 body.ow-writing-open [role="treeitem"][class*="sessionRow"][class*="selected"]{background:transparent !important}
 .ow-overlay-host{position:relative;z-index:70;pointer-events:auto}
 .ow-crash{position:fixed;inset:auto 24px 24px auto;z-index:90;max-width:360px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid rgba(153,27,27,.25);color:#991b1b;box-shadow:0 8px 28px rgba(0,0,0,.12);pointer-events:auto}

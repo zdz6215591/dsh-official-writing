@@ -92,16 +92,6 @@ export function createNativeTabRegistry(officialTree: any): NativeTabRegistry {
   }
 }
 
-function PenTabIcon() {
-  return h(
-    'svg',
-    { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true },
-    h('path', { d: 'M4.2 2.4h5.1L12.6 5.7v7.5H4.2V2.4z', stroke: 'currentColor', strokeWidth: '1.25' }),
-    h('path', { d: 'M9.3 2.5v3.2h3.2', stroke: 'currentColor', strokeWidth: '1.25' }),
-    h('path', { d: 'M6 10.7h4.2M6 8.4h4.2', stroke: 'currentColor', strokeWidth: '1.25', strokeLinecap: 'round' }),
-  )
-}
-
 export function setupOfficialWritingTab(
   ctx: Context,
   options: {
@@ -152,13 +142,8 @@ export function setupOfficialWritingTab(
     insertedRegistry = registry
     removeInsertedTab = registry.insert({
       id: 'official-writing',
-      label: h(
-        'span',
-        { style: { display: 'inline-flex', alignItems: 'center', gap: 5 } },
-        h(PenTabIcon),
-        h('span', null, '公文写作'),
-      ),
-      order: 30, // 任务是内置，频道是 20，公文写作 30 排在任务、频道后面
+      label: '公文',
+      order: 30, // 任务是内置，频道是 20，公文 30 排在任务、频道后面
       render: () =>
         h(WritingSidebarPanel, {
           onOpenWorkbench: options.onOpenWorkbench,

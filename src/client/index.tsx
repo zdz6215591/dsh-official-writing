@@ -95,7 +95,7 @@ export function apply(ctx: Context) {
       },
       isWorkbenchOpen: () => open,
       onTabChange: (tab: string) => {
-        if (tab !== 'official-writing' && tab !== '公文写作') {
+        if (tab !== 'official-writing' && tab !== '公文写作' && tab !== '公文') {
           // 切换到任务或频道时，收起公文写作中央工作台，避免遮挡会话
           setOpen(false)
         } else {
