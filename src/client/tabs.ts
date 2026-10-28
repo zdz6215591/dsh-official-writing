@@ -199,6 +199,11 @@ export function setupOfficialWritingTab(
           options.onTabChange?.(tab)
         }, [tab])
 
+        // 侧栏收起（56px 图标栏）时不叠加标签栏，交还原生根栏渲染，避免文字换行挤压
+        if (props && props.wide === false) {
+          return h(tree, props)
+        }
+
         const tabs = registry.getTabs()
         const isOfficialWriting = tab === 'official-writing'
         const currentExtra = tabs.find((t) => t.id === tab)
